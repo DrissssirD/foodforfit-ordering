@@ -23,6 +23,7 @@ export interface SubscriptionPlan {
   features: string[];
   badge?: string;
   popular?: boolean;
+  allowedMealIds?: string[]; // if non-empty, only these meals are available in the package
 }
 
 export interface CartItem {
@@ -48,6 +49,7 @@ export interface Order {
   status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
   createdAt: string;
   subscriptionPlan?: SubscriptionPlan | null;
+  notes?: string;
 }
 
 export interface CartState {
@@ -58,3 +60,15 @@ export interface CartState {
 }
 
 export type Page = 'home' | 'menu' | 'packages' | 'about' | 'success' | 'admin';
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface ChatConversation {
+  id: string;
+  startedAt: string;
+  messages: ChatMessage[];
+  lang: string;
+}

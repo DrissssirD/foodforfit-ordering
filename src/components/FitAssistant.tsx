@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { X, Sparkles, Send } from 'lucide-react';
 import { useApp } from '../store';
 import { useT } from '../i18n';
+import type { ChatConversation, ChatMessage } from '../types';
 
 interface Message {
   id: number;
@@ -10,27 +11,30 @@ interface Message {
   loading?: boolean;
 }
 
-async function callClaude(messages: { role: 'user' | 'assistant'; content: string }[], lang: string, menuContext: string): Promise<string> {
-  const systemPrompt = `You are FIT Assistant, a friendly nutrition and meal planning assistant for Food For Fit — a premium healthy meal delivery service in Turkey. 
+async function callClaude(
+  messages: { role: 'user' | 'assistant'; content: string }[],
+  lang: string,
+  menuContext: string,
+  systemPrompt: string,
+): Promise<string> {
+  const fullPrompt = `${systemPrompt}
 
-Context about our service:
-- We offer weekly meal packages: 14-meal (₺6,500), 21-meal (₺9,450), 28-meal (₺12,000)
-- We deliver to Istanbul, Monday-Saturday, 09:00-21:00
-- Free delivery over ₺800
-- Pick-up option available
-- Our meals: ${menuContext}
-- We have breakfast, main meals, bowls, and smoothies
-- All meals show macros (calories, protein, carbs, fat)
+Current menu items: ${menuContext}
 
-Always respond in ${lang === 'tr' ? 'Turkish' : lang === 'ru' ? 'Russian' : 'English'}. Be warm, concise, and helpful. Help users choose packages, understand meals, or learn about delivery. Keep responses under 150 words. Use relevant emoji occasionally.`;
+Always respond in ${lang === 'tr' ? 'Turkish' : lang === 'ru' ? 'Russian' : 'English'}.`;
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY ?? '', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-calls': 'true' },
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': import.meta.env.VITE_ANTHROPIC_API_KEY ?? '',
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-calls': 'true',
+    },
     body: JSON.stringify({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 1000,
-      system: systemPrompt,
+      system: fullPrompt,
       messages,
     }),
   });
@@ -38,8 +42,10 @@ Always respond in ${lang === 'tr' ? 'Turkish' : lang === 'ru' ? 'Russian' : 'Eng
   return data.content?.[0]?.text ?? '...';
 }
 
+export { callClaude };
+
 export default function FitAssistant() {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const t = useT(state.lang);
   const [isOpen, setIsOpen] = useState(false);
   const [showTooltip, setShowTooltip] = useState(false);
@@ -49,11 +55,16 @@ export default function FitAssistant() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const msgIdRef = useRef(1);
   const historyRef = useRef<{ role: 'user' | 'assistant'; content: string }[]>([]);
+  const conversationStartRef = useRef<string>('');
+
+  // Don't render if admin has disabled the assistant
+  if (!state.aiEnabled) return null;
 
   // Reset & welcome on open or lang change
   useEffect(() => {
     if (isOpen) {
       historyRef.current = [];
+      conversationStartRef.current = new Date().toISOString();
       setMessages([{ id: msgIdRef.current++, text: t('ai_welcome'), isBot: true }]);
     }
   }, [isOpen, state.lang]);
@@ -71,6 +82,20 @@ export default function FitAssistant() {
     .map(m => `${m.name} (${m.calories}kcal, ₺${m.price})`)
     .join(', ');
 
+  const handleClose = () => {
+    // Save conversation to history if there were actual user messages
+    if (historyRef.current.length > 0) {
+      const conversation: ChatConversation = {
+        id: `conv-${Date.now()}`,
+        startedAt: conversationStartRef.current,
+        lang: state.lang,
+        messages: historyRef.current.map(m => ({ role: m.role, content: m.content } as ChatMessage)),
+      };
+      dispatch({ type: 'ADD_CHAT_CONVERSATION', payload: conversation });
+    }
+    setIsOpen(false);
+  };
+
   const handleSend = async () => {
     const text = input.trim();
     if (!text || isLoading) return;
@@ -85,7 +110,7 @@ export default function FitAssistant() {
     setIsLoading(true);
 
     try {
-      const reply = await callClaude(historyRef.current, state.lang, menuContext);
+      const reply = await callClaude(historyRef.current, state.lang, menuContext, state.aiSystemPrompt);
       historyRef.current.push({ role: 'assistant', content: reply });
       setMessages(prev => prev.map(m => m.id === loadingId ? { ...m, text: reply, loading: false } : m));
     } catch {
@@ -119,7 +144,7 @@ export default function FitAssistant() {
               </span>
               <span className="w-2 h-2 rounded-full ml-1" style={{ background: '#4ade80' }} />
             </div>
-            <button onClick={() => setIsOpen(false)}
+            <button onClick={handleClose}
               className="w-8 h-8 rounded-xl flex items-center justify-center cursor-pointer transition-opacity hover:opacity-70"
               style={{ background: 'rgba(255,255,255,0.15)' }}>
               <X size={16} style={{ color: '#fff' }} />
