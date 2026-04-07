@@ -1,7 +1,18 @@
 import React, { createContext, useContext, useReducer, type ReactNode } from 'react';
-import type { CartItem, Meal, SubscriptionPlan, Page, Order } from './types';
+import type { CartItem, Meal, SubscriptionPlan, Page, Order, ChatConversation } from './types';
 import type { Lang } from './i18n';
 import { meals as initialMeals, subscriptionPlans as initialPlans } from './data';
+
+const DEFAULT_AI_PROMPT = `You are FIT Assistant, a friendly nutrition and meal planning assistant for Food For Fit — a premium healthy meal delivery service in Turkey.
+
+Context about our service:
+- We offer weekly meal packages with free delivery
+- We deliver to Istanbul, Monday-Saturday, 09:00-21:00
+- Free delivery over ₺800, pick-up option available
+- All meals show macros (calories, protein, carbs, fat)
+- We have breakfast, main meals, bowls, and smoothies
+
+Be warm, concise, and helpful. Help users choose packages, understand meals, or learn about delivery. Keep responses under 150 words. Use relevant emoji occasionally.`;
 
 interface AppState {
   currentPage: Page;
@@ -18,6 +29,10 @@ interface AppState {
   adminMeals: typeof initialMeals;
   adminPlans: SubscriptionPlan[];
   isAdmin: boolean;
+  adminPassword: string;
+  aiEnabled: boolean;
+  aiSystemPrompt: string;
+  chatHistory: ChatConversation[];
 }
 
 type Action =
@@ -41,7 +56,11 @@ type Action =
   | { type: 'UPDATE_PLAN'; payload: SubscriptionPlan }
   | { type: 'ADD_PLAN'; payload: SubscriptionPlan }
   | { type: 'DELETE_PLAN'; payload: string }
-  | { type: 'SET_ADMIN'; payload: boolean };
+  | { type: 'SET_ADMIN'; payload: boolean }
+  | { type: 'CHANGE_ADMIN_PASSWORD'; payload: string }
+  | { type: 'SET_AI_ENABLED'; payload: boolean }
+  | { type: 'SET_AI_SYSTEM_PROMPT'; payload: string }
+  | { type: 'ADD_CHAT_CONVERSATION'; payload: ChatConversation };
 
 // Seed orders for demo
 const seedOrders: Order[] = [
@@ -83,6 +102,10 @@ const initialState: AppState = {
   adminMeals: [...initialMeals],
   adminPlans: [...initialPlans],
   isAdmin: false,
+  adminPassword: 'admin123',
+  aiEnabled: true,
+  aiSystemPrompt: DEFAULT_AI_PROMPT,
+  chatHistory: [],
 };
 
 function reducer(state: AppState, action: Action): AppState {
@@ -174,6 +197,14 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, adminPlans: state.adminPlans.filter(p => p.id !== action.payload) };
     case 'SET_ADMIN':
       return { ...state, isAdmin: action.payload };
+    case 'CHANGE_ADMIN_PASSWORD':
+      return { ...state, adminPassword: action.payload };
+    case 'SET_AI_ENABLED':
+      return { ...state, aiEnabled: action.payload };
+    case 'SET_AI_SYSTEM_PROMPT':
+      return { ...state, aiSystemPrompt: action.payload };
+    case 'ADD_CHAT_CONVERSATION':
+      return { ...state, chatHistory: [action.payload, ...state.chatHistory] };
     default:
       return state;
   }

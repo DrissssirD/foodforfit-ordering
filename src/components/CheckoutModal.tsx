@@ -14,6 +14,7 @@ interface FormData {
   deliveryDate: string; deliveryTime: string;
   paymentMethod: 'cod' | 'card';
   cardNumber: string; cardExpiry: string; cardCvv: string;
+  notes: string;
 }
 
 const initialForm: FormData = {
@@ -21,6 +22,7 @@ const initialForm: FormData = {
   address: '', district: '', postalCode: '',
   deliveryDate: 'today', deliveryTime: '18:00 - 19:00',
   paymentMethod: 'cod', cardNumber: '', cardExpiry: '', cardCvv: '',
+  notes: '',
 };
 
 function getDeliveryDates(lang: string) {
@@ -113,6 +115,7 @@ export default function CheckoutModal() {
         deliveryDate: form.deliveryDate, deliveryTime: form.deliveryTime,
         paymentMethod: form.paymentMethod, status: 'pending',
         createdAt: new Date().toISOString(), subscriptionPlan: state.subscriptionPlan,
+        notes: form.notes.trim() || undefined,
       };
       dispatch({ type: 'COMPLETE_ORDER', payload: order });
     }
@@ -196,6 +199,16 @@ export default function CheckoutModal() {
                       {timeSlots.map(ts => <option key={ts} value={ts}>{ts}</option>)}
                     </select>
                   </div>
+                </div>
+                <div>
+                  <label style={labelStyle}>{t('chk_notes')}</label>
+                  <textarea
+                    placeholder={t('chk_notes_placeholder')}
+                    rows={2}
+                    value={form.notes}
+                    onChange={e => update('notes', e.target.value)}
+                    style={{ ...iStyle(false), resize: 'none' }}
+                  />
                 </div>
               </div>
             )}
