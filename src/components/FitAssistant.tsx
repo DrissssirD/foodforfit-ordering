@@ -44,6 +44,8 @@ Always respond in ${lang === 'tr' ? 'Turkish' : lang === 'ru' ? 'Russian' : 'Eng
 
 export { callClaude };
 
+const green = '#1E3F30';
+
 export default function FitAssistant() {
   const { state, dispatch } = useApp();
   const t = useT(state.lang);
@@ -120,8 +122,6 @@ export default function FitAssistant() {
     }
   };
 
-  const green = '#2C5F2E';
-
   const quickButtons = state.lang === 'tr'
     ? ['📦 Paket öner', '🔥 Kalori sorusu', '🚚 Teslimat bilgisi']
     : state.lang === 'ru'
@@ -133,13 +133,13 @@ export default function FitAssistant() {
       {isOpen && (
         <div
           className="absolute bottom-20 right-0 w-[370px] max-w-[calc(100vw-40px)] rounded-3xl flex flex-col overflow-hidden animate-fade-in-up"
-          style={{ height: 520, background: '#FAF7F2', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', border: '1px solid #E5DDD0' }}
+          style={{ height: 520, background: '#FDF6F2', boxShadow: '0 20px 60px rgba(0,0,0,0.18)', border: '1px solid #E5DDD0' }}
         >
           {/* Header */}
           <div className="flex items-center justify-between px-5 py-4" style={{ background: green }}>
             <div className="flex items-center gap-2">
               <Sparkles size={17} style={{ color: '#C8A97A' }} />
-              <span style={{ color: '#fff', fontFamily: "'Playfair Display', serif", fontWeight: 600, fontSize: '1rem' }}>
+              <span style={{ color: '#fff', fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem' }}>
                 {t('ai_title')}
               </span>
               <span className="w-2 h-2 rounded-full ml-1" style={{ background: '#4ade80' }} />
@@ -158,10 +158,10 @@ export default function FitAssistant() {
                 <div
                   className="max-w-[85%] px-4 py-3 rounded-2xl text-sm leading-relaxed whitespace-pre-line"
                   style={{
-                    background: msg.isBot ? '#FFFDF9' : green,
+                    background: msg.isBot ? '#FFFFFF' : green,
                     color: msg.isBot ? '#1A1A1A' : '#fff',
                     border: msg.isBot ? '1px solid #E5DDD0' : 'none',
-                    fontFamily: "'DM Sans', sans-serif",
+                    fontFamily: "'Montserrat', sans-serif",
                     borderRadius: msg.isBot ? '4px 18px 18px 18px' : '18px 4px 18px 18px',
                     opacity: msg.loading ? 0.6 : 1,
                   }}
@@ -181,8 +181,8 @@ export default function FitAssistant() {
               <div className="flex flex-wrap gap-2 mt-2">
                 {quickButtons.map((btn, i) => (
                   <button key={i} onClick={() => { setInput(btn); }}
-                    className="px-3 py-2 text-xs font-medium rounded-xl cursor-pointer transition-all"
-                    style={{ background: '#E8F0E8', color: green, fontFamily: "'DM Sans', sans-serif", border: `1px solid ${green}33` }}
+                    className="px-3 py-2 text-xs font-medium rounded-full cursor-pointer transition-all"
+                    style={{ background: '#E8F0E8', color: green, fontFamily: "'Montserrat', sans-serif", border: `1px solid ${green}33` }}
                   >
                     {btn}
                   </button>
@@ -204,12 +204,12 @@ export default function FitAssistant() {
                 disabled={isLoading}
                 className="flex-1 px-4 py-3 text-sm rounded-2xl focus:outline-none"
                 style={{
-                  background: '#FFFDF9', border: '1.5px solid #E5DDD0',
-                  fontFamily: "'DM Sans', sans-serif", color: '#1A1A1A',
+                  background: '#FFFFFF', border: '1.5px solid #E5DDD0',
+                  fontFamily: "'Montserrat', sans-serif", color: '#1A1A1A',
                 }}
               />
               <button onClick={handleSend} disabled={isLoading || !input.trim()}
-                className="w-10 h-10 rounded-2xl flex items-center justify-center cursor-pointer transition-opacity"
+                className="w-10 h-10 rounded-full flex items-center justify-center cursor-pointer transition-opacity"
                 style={{ background: green, opacity: isLoading || !input.trim() ? 0.5 : 1 }}
                 aria-label="Send">
                 <Send size={15} style={{ color: '#fff' }} />
@@ -222,9 +222,9 @@ export default function FitAssistant() {
       {/* Tooltip */}
       {showTooltip && !isOpen && (
         <div className="absolute bottom-20 right-0 px-4 py-2.5 rounded-2xl text-sm whitespace-nowrap animate-fade-in-up"
-          style={{ background: '#FFFDF9', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', border: '1px solid #E5DDD0', color: '#1A1A1A', fontFamily: "'DM Sans', sans-serif" }}>
+          style={{ background: '#FFFFFF', boxShadow: '0 4px 20px rgba(0,0,0,0.12)', border: '1px solid #E5DDD0', color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>
           {t('ai_tooltip')}
-          <div className="absolute -bottom-1.5 right-6 w-3 h-3 rotate-45" style={{ background: '#FFFDF9' }} />
+          <div className="absolute -bottom-1.5 right-6 w-3 h-3 rotate-45" style={{ background: '#FFFFFF' }} />
         </div>
       )}
 
@@ -232,10 +232,10 @@ export default function FitAssistant() {
       <button
         onClick={() => { setIsOpen(!isOpen); setShowTooltip(false); }}
         className="w-15 h-15 rounded-full flex items-center justify-center cursor-pointer transition-all duration-300 relative"
-        style={{ width: 60, height: 60, background: green, boxShadow: isOpen ? '0 4px 20px rgba(44,95,46,0.4)' : '0 4px 20px rgba(44,95,46,0.3)' }}
+        style={{ width: 60, height: 60, background: green, boxShadow: isOpen ? '0 4px 20px rgba(30,63,48,0.4)' : '0 4px 20px rgba(30,63,48,0.3)' }}
         aria-label={t('ai_title')}
       >
-        {!isOpen && <span className="absolute inset-0 rounded-full animate-ping" style={{ background: 'rgba(44,95,46,0.3)' }} />}
+        {!isOpen && <span className="absolute inset-0 rounded-full animate-ping" style={{ background: 'rgba(30,63,48,0.3)' }} />}
         <Sparkles size={24} style={{ color: '#C8A97A', position: 'relative', zIndex: 10 }} />
       </button>
     </div>

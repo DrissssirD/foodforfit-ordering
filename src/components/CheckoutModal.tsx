@@ -6,6 +6,7 @@ import type { Order } from '../types';
 
 const FREE_DELIVERY_THRESHOLD = 800;
 const DELIVERY_FEE = 50;
+const green = '#1E3F30';
 
 interface FormData {
   deliveryType: 'teslimat' | 'gelal';
@@ -48,10 +49,10 @@ function getDeliveryDates(lang: string) {
 const timeSlots = ['09:00 - 10:00','10:00 - 11:00','11:00 - 12:00','12:00 - 13:00','13:00 - 14:00','14:00 - 15:00','15:00 - 16:00','16:00 - 17:00','17:00 - 18:00','18:00 - 19:00','19:00 - 20:00','20:00 - 21:00'];
 
 const iStyle = (err: boolean) => ({
-  width: '100%', padding: '12px 16px', borderRadius: '14px',
+  width: '100%', padding: '12px 16px', borderRadius: '12px',
   border: `1.5px solid ${err ? '#C0392B' : '#E5DDD0'}`,
-  background: '#FFFDF9', fontSize: '14px', outline: 'none',
-  fontFamily: "'DM Sans', sans-serif", color: '#1A1A1A', transition: 'border-color 0.2s',
+  background: '#FFFFFF', fontSize: '14px', outline: 'none',
+  fontFamily: "'Montserrat', sans-serif", color: '#1A1A1A', transition: 'border-color 0.2s',
 });
 
 export default function CheckoutModal() {
@@ -64,7 +65,6 @@ export default function CheckoutModal() {
   const total = useCartTotal(state.cart);
   const deliveryFee = total >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
   const deliveryDates = getDeliveryDates(state.lang);
-  const green = '#2C5F2E';
 
   if (!state.checkoutOpen) return null;
 
@@ -121,8 +121,8 @@ export default function CheckoutModal() {
     }
   };
 
-  const labelStyle = { fontSize: '13px', fontWeight: 500, color: '#1A1A1A', fontFamily: "'DM Sans', sans-serif", marginBottom: '8px', display: 'block' };
-  const errStyle = { color: '#C0392B', fontSize: '11px', marginTop: '4px', fontFamily: "'DM Sans'" };
+  const labelStyle = { fontSize: '13px', fontWeight: 500, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", marginBottom: '8px', display: 'block' };
+  const errStyle = { color: '#C0392B', fontSize: '11px', marginTop: '4px', fontFamily: "'Montserrat', sans-serif" };
 
   return (
     <>
@@ -130,11 +130,11 @@ export default function CheckoutModal() {
         style={{ background: 'rgba(26,26,26,0.55)', backdropFilter: 'blur(6px)' }}
         onClick={() => dispatch({ type: 'TOGGLE_CHECKOUT', payload: false })}>
         <div className="w-full max-w-[580px] max-h-[90vh] flex flex-col rounded-3xl overflow-hidden animate-fade-in-up"
-          style={{ background: '#FAF7F2', boxShadow: '0 24px 80px rgba(0,0,0,0.2)' }}
+          style={{ background: '#FDF6F2', boxShadow: '0 24px 80px rgba(0,0,0,0.2)' }}
           onClick={e => e.stopPropagation()}>
 
           <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: '#E5DDD0' }}>
-            <h2 style={{ fontFamily: "'Playfair Display', serif", fontSize: '1.2rem', color: '#1A1A1A', fontWeight: 600 }}>{t('chk_title')}</h2>
+            <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '1.2rem', color: '#1A1A1A', fontWeight: 700 }}>{t('chk_title')}</h2>
             <button onClick={() => dispatch({ type: 'TOGGLE_CHECKOUT', payload: false })}
               className="w-9 h-9 rounded-2xl flex items-center justify-center cursor-pointer hover:opacity-70" style={{ background: '#E5DDD0' }}>
               <X size={16} style={{ color: '#1A1A1A' }} />
@@ -145,10 +145,10 @@ export default function CheckoutModal() {
             {[{ n: 1, label: t('chk_info') }, { n: 2, label: t('chk_payment') }].map((s, i) => (
               <div key={s.n} className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold"
-                  style={{ background: step >= s.n ? green : '#E5DDD0', color: step >= s.n ? '#fff' : '#8A8A8A', fontFamily: "'DM Sans'" }}>
+                  style={{ background: step >= s.n ? green : '#E5DDD0', color: step >= s.n ? '#fff' : '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
                   {s.n}
                 </div>
-                <span className="text-xs font-medium" style={{ color: step >= s.n ? green : '#8A8A8A', fontFamily: "'DM Sans'" }}>{s.label}</span>
+                <span className="text-xs font-medium" style={{ color: step >= s.n ? green : '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>{s.label}</span>
                 {i === 0 && <div className="w-8 h-px mx-1" style={{ background: step >= 2 ? green : '#E5DDD0' }} />}
               </div>
             ))}
@@ -162,8 +162,8 @@ export default function CheckoutModal() {
                   <div className="grid grid-cols-2 gap-3">
                     {[{ value: 'teslimat' as const, icon: <Truck size={16} />, label: t('chk_delivery') }, { value: 'gelal' as const, icon: <MapPin size={16} />, label: t('chk_pickup') }].map(opt => (
                       <button key={opt.value} onClick={() => update('deliveryType', opt.value)}
-                        className="flex items-center justify-center gap-2 py-3 rounded-2xl text-sm font-medium cursor-pointer"
-                        style={{ border: `1.5px solid ${form.deliveryType === opt.value ? green : '#E5DDD0'}`, background: form.deliveryType === opt.value ? '#E8F0E8' : '#FFFDF9', color: form.deliveryType === opt.value ? green : '#4A4A4A', fontFamily: "'DM Sans'" }}>
+                        className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium cursor-pointer"
+                        style={{ border: `1.5px solid ${form.deliveryType === opt.value ? green : '#E5DDD0'}`, background: form.deliveryType === opt.value ? '#E8F0E8' : '#FFFFFF', color: form.deliveryType === opt.value ? green : '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
                         {opt.icon}{opt.label}
                       </button>
                     ))}
@@ -218,38 +218,38 @@ export default function CheckoutModal() {
                 <label style={labelStyle}>{t('chk_payment_method')}</label>
                 {[{ value: 'cod' as const, icon: <Truck size={16} />, title: t('chk_cod'), desc: t('chk_cod_desc') }, { value: 'card' as const, icon: <CreditCard size={16} />, title: t('chk_card'), desc: t('chk_card_desc') }].map(opt => (
                   <button key={opt.value} onClick={() => update('paymentMethod', opt.value)}
-                    className="flex items-center gap-4 p-4 rounded-2xl text-left cursor-pointer w-full"
-                    style={{ border: `1.5px solid ${form.paymentMethod === opt.value ? green : '#E5DDD0'}`, background: form.paymentMethod === opt.value ? '#E8F0E8' : '#FFFDF9' }}>
+                    className="flex items-center gap-4 p-4 rounded-xl text-left cursor-pointer w-full"
+                    style={{ border: `1.5px solid ${form.paymentMethod === opt.value ? green : '#E5DDD0'}`, background: form.paymentMethod === opt.value ? '#E8F0E8' : '#FFFFFF' }}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: form.paymentMethod === opt.value ? green : '#F5ECD7', color: form.paymentMethod === opt.value ? '#fff' : '#C8A97A' }}>{opt.icon}</div>
-                    <div><div style={{ fontSize: '14px', fontWeight: 600, color: '#1A1A1A', fontFamily: "'DM Sans'" }}>{opt.title}</div><div style={{ fontSize: '12px', color: '#8A8A8A', fontFamily: "'DM Sans'" }}>{opt.desc}</div></div>
+                    <div><div style={{ fontSize: '14px', fontWeight: 600, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>{opt.title}</div><div style={{ fontSize: '12px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>{opt.desc}</div></div>
                   </button>
                 ))}
                 {form.paymentMethod === 'card' && (
-                  <div className="p-4 rounded-2xl" style={{ background: '#FFFDF9', border: '1px solid #E5DDD0' }}>
+                  <div className="p-4 rounded-xl" style={{ background: '#FFFFFF', border: '1px solid #E5DDD0' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <div><input placeholder={t('chk_card_num')} value={form.cardNumber} onChange={e => update('cardNumber', formatCard(e.target.value))} maxLength={19} style={iStyle(!!errors.cardNumber)} />{errors.cardNumber && <p style={errStyle}>{errors.cardNumber}</p>}</div>
                       <div className="grid grid-cols-2 gap-3">
                         <div><input placeholder={t('chk_expiry')} value={form.cardExpiry} onChange={e => update('cardExpiry', formatExp(e.target.value))} maxLength={5} style={iStyle(!!errors.cardExpiry)} />{errors.cardExpiry && <p style={errStyle}>{errors.cardExpiry}</p>}</div>
                         <div><input placeholder={t('chk_cvv')} value={form.cardCvv} onChange={e => update('cardCvv', e.target.value.replace(/\D/g,'').slice(0,3))} maxLength={3} type="password" style={iStyle(!!errors.cardCvv)} />{errors.cardCvv && <p style={errStyle}>{errors.cardCvv}</p>}</div>
                       </div>
-                      <p style={{ fontSize: '11px', color: '#8A8A8A', fontFamily: "'DM Sans'" }}>🔒 {t('chk_ssl')}</p>
+                      <p style={{ fontSize: '11px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>🔒 {t('chk_ssl')}</p>
                     </div>
                   </div>
                 )}
-                <div className="p-4 rounded-2xl" style={{ background: '#FFFDF9', border: '1px solid #E5DDD0' }}>
-                  <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#1A1A1A', fontFamily: "'Playfair Display', serif", marginBottom: '12px' }}>{t('chk_summary')}</h4>
+                <div className="p-4 rounded-xl" style={{ background: '#FFFFFF', border: '1px solid #E5DDD0' }}>
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", marginBottom: '12px' }}>{t('chk_summary')}</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {state.cart.map(item => (
-                      <div key={item.meal.id} className="flex justify-between" style={{ fontSize: '13px', color: '#4A4A4A', fontFamily: "'DM Sans'" }}>
+                      <div key={item.meal.id} className="flex justify-between" style={{ fontSize: '13px', color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
                         <span>{item.meal.name} × {item.quantity}</span>
                         <span>{item.isCreditBased ? `${item.quantity} ${t('meal_credit')}` : `₺${(item.meal.price * item.quantity).toLocaleString('tr-TR')}`}</span>
                       </div>
                     ))}
                     <div style={{ borderTop: '1px solid #E5DDD0', paddingTop: '10px', marginTop: '4px' }}>
-                      <div className="flex justify-between" style={{ fontSize: '13px', color: '#8A8A8A', fontFamily: "'DM Sans'", marginBottom: '4px' }}>
+                      <div className="flex justify-between" style={{ fontSize: '13px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif", marginBottom: '4px' }}>
                         <span>{t('cart_delivery')}</span><span>{deliveryFee === 0 ? t('cart_free') : `₺${deliveryFee}`}</span>
                       </div>
-                      <div className="flex justify-between" style={{ fontSize: '15px', fontWeight: 600, color: '#1A1A1A', fontFamily: "'Playfair Display', serif" }}>
+                      <div className="flex justify-between" style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>
                         <span>{t('cart_total')}</span><span>₺{(total + deliveryFee).toLocaleString('tr-TR')}</span>
                       </div>
                     </div>
@@ -263,15 +263,15 @@ export default function CheckoutModal() {
             {step === 1 ? (
               <>
                 <button onClick={() => { dispatch({ type: 'TOGGLE_CHECKOUT', payload: false }); dispatch({ type: 'TOGGLE_CART', payload: true }); }}
-                  className="px-5 py-3 text-sm font-medium cursor-pointer hover:opacity-70" style={{ color: '#4A4A4A', fontFamily: "'DM Sans'" }}>{t('chk_back_cart')}</button>
+                  className="px-5 py-3 text-sm font-medium cursor-pointer hover:opacity-70" style={{ color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_back_cart')}</button>
                 <button onClick={() => { if (validateStep1()) setStep(2); }}
-                  className="px-6 py-3 rounded-2xl text-sm font-semibold cursor-pointer"
-                  style={{ background: green, color: '#fff', fontFamily: "'DM Sans'" }}>{t('chk_continue')}</button>
+                  className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer"
+                  style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_continue')}</button>
               </>
             ) : (
               <>
-                <button onClick={() => setStep(1)} className="px-5 py-3 text-sm font-medium cursor-pointer hover:opacity-70" style={{ color: '#4A4A4A', fontFamily: "'DM Sans'" }}>{t('chk_back')}</button>
-                <button onClick={handleSubmit} className="px-6 py-3 rounded-2xl text-sm font-semibold cursor-pointer" style={{ background: green, color: '#fff', fontFamily: "'DM Sans'" }}>{t('chk_confirm')}</button>
+                <button onClick={() => setStep(1)} className="px-5 py-3 text-sm font-medium cursor-pointer hover:opacity-70" style={{ color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_back')}</button>
+                <button onClick={handleSubmit} className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer" style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_confirm')}</button>
               </>
             )}
           </div>
