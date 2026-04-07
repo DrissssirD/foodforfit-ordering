@@ -98,15 +98,6 @@ export default function Header() {
             )}
           </div>
 
-          {/* Admin */}
-          <button onClick={() => dispatch({ type: 'SET_PAGE', payload: 'admin' })}
-            className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer"
-            style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}
-            title={t('nav_admin')}
-          >
-            ⚙️
-          </button>
-
           {/* Cart */}
           <button onClick={() => dispatch({ type: 'TOGGLE_CART', payload: true })}
             className="relative p-2.5 rounded-xl transition-colors cursor-pointer hover:opacity-75"
@@ -140,11 +131,6 @@ export default function Header() {
                 {link.label}
               </button>
             ))}
-            <button onClick={() => dispatch({ type: 'SET_PAGE', payload: 'admin' })}
-              className="text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors cursor-pointer"
-              style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
-              ⚙️ {t('nav_admin')}
-            </button>
           </nav>
         </div>
       )}

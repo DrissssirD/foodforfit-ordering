@@ -362,8 +362,17 @@ export default function AdminDashboard() {
   const [tab, setTab] = useState<AdminTab>('orders');
   const [loggedIn, setLoggedIn] = useState(state.isAdmin);
 
-  const handleLogin = () => { setLoggedIn(true); dispatch({ type: 'SET_ADMIN', payload: true }); };
-  const handleLogout = () => { setLoggedIn(false); dispatch({ type: 'SET_ADMIN', payload: false }); dispatch({ type: 'SET_PAGE', payload: 'packages' }); };
+  const handleLogin = () => {
+    setLoggedIn(true);
+    dispatch({ type: 'SET_ADMIN', payload: true });
+    window.history.pushState({}, '', '/admin');
+  };
+  const handleLogout = () => {
+    setLoggedIn(false);
+    dispatch({ type: 'SET_ADMIN', payload: false });
+    dispatch({ type: 'SET_PAGE', payload: 'packages' });
+    window.history.pushState({}, '', '/');
+  };
 
   if (!loggedIn) return <AdminLogin onLogin={handleLogin} t={t} />;
 
@@ -381,12 +390,12 @@ export default function AdminDashboard() {
       <div className="sticky top-0 z-50 border-b" style={{ background: 'rgba(253,246,242,0.97)', backdropFilter: 'blur(12px)', borderColor: '#E5DDD0' }}>
         <div className="max-w-[1400px] mx-auto px-5 sm:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <button onClick={() => dispatch({ type: 'SET_PAGE', payload: 'packages' })} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer hover:opacity-70" style={{ background: '#E5DDD0' }}>
+            <button onClick={() => { dispatch({ type: 'SET_PAGE', payload: 'packages' }); window.history.pushState({}, '', '/'); }} className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer hover:opacity-70" style={{ background: '#E5DDD0' }}>
               <ArrowLeft size={16} style={{ color: '#4A4A4A' }} />
             </button>
             <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, color: '#1A1A1A', fontSize: '1.1rem' }}>{t('admin_title')}</span>
           </div>
-          <button onClick={handleLogout} className="px-4 py-2 rounded-xl text-sm font-medium cursor-pointer hover:opacity-70" style={{ background: '#FEE2E2', color: '#C0392B', fontFamily: "'Montserrat', sans-serif" }}>
+          <button onClick={handleLogout} className="px-4 py-2 rounded-full text-sm font-medium cursor-pointer hover:opacity-70" style={{ background: '#FEE2E2', color: '#C0392B', fontFamily: "'Montserrat', sans-serif" }}>
             {t('admin_logout')}
           </button>
         </div>

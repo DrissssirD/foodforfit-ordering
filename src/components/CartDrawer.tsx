@@ -10,11 +10,18 @@ const green = '#1E3F30';
 export default function CartDrawer() {
   const { state, dispatch } = useApp();
   const t = useT(state.lang);
-  const total = useCartTotal(state.cart);
+  const alacarteTotal = useCartTotal(state.cart);
   const itemCount = useCartItemCount(state.cart);
-  const deliveryFee = total >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
-  const remaining = Math.max(0, FREE_DELIVERY_THRESHOLD - total);
-  const progress = Math.min(100, (total / FREE_DELIVERY_THRESHOLD) * 100);
+  const isSubscription = !!state.subscriptionPlan;
+
+  // For à la carte: calculate delivery fee; for subscription: always free
+  const deliveryFee = isSubscription ? 0 : (alacarteTotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE);
+  const remaining = Math.max(0, FREE_DELIVERY_THRESHOLD - alacarteTotal);
+  const progress = Math.min(100, (alacarteTotal / FREE_DELIVERY_THRESHOLD) * 100);
+
+  // Credits used = items in cart (each credit-based item counts as quantity units)
+  const creditsUsed = state.cart.reduce((sum, item) => sum + (item.isCreditBased ? item.quantity : 0), 0);
+  const totalCredits = state.subscriptionPlan?.mealCount ?? 0;
 
   if (!state.cartOpen) return null;
 
@@ -24,6 +31,8 @@ export default function CartDrawer() {
         onClick={() => dispatch({ type: 'TOGGLE_CART', payload: false })} />
       <div className="fixed right-0 top-0 bottom-0 w-full sm:w-[440px] z-50 flex flex-col"
         style={{ background: '#FDF6F2', animation: 'slideInRight 0.3s ease', boxShadow: '-8px 0 40px rgba(0,0,0,0.12)' }}>
+
+        {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: '#E5DDD0' }}>
           <div>
             <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '1.2rem', color: '#1A1A1A', fontWeight: 700 }}>{t('cart_title')}</h2>
@@ -35,6 +44,26 @@ export default function CartDrawer() {
           </button>
         </div>
 
+        {/* Subscription plan banner */}
+        {isSubscription && (
+          <div className="px-6 py-3 border-b" style={{ background: '#E8F0E8', borderColor: `${green}20` }}>
+            <div className="flex items-center justify-between">
+              <span className="text-sm font-semibold" style={{ color: green, fontFamily: "'Montserrat', sans-serif" }}>
+                📦 {state.subscriptionPlan!.name}
+              </span>
+              <span className="text-sm font-semibold" style={{ color: green, fontFamily: "'Montserrat', sans-serif" }}>
+                {creditsUsed} / {totalCredits} {t('cart_items')}
+              </span>
+            </div>
+            {/* Credits progress bar */}
+            <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: `${green}20` }}>
+              <div className="h-full rounded-full transition-all duration-500"
+                style={{ width: totalCredits > 0 ? `${(creditsUsed / totalCredits) * 100}%` : '0%', background: green }} />
+            </div>
+          </div>
+        )}
+
+        {/* Items */}
         <div className="flex-1 overflow-y-auto px-6 py-4">
           {state.cart.length === 0 ? (
             <div className="text-center py-16">
@@ -48,7 +77,8 @@ export default function CartDrawer() {
             </div>
           ) : (
             <div className="space-y-3">
-              {!state.subscriptionPlan && remaining > 0 && (
+              {/* Free delivery progress — only for à la carte */}
+              {!isSubscription && remaining > 0 && (
                 <div className="p-3.5 rounded-2xl mb-2" style={{ background: '#FFFFFF', border: '1px solid #E5DDD0' }}>
                   <p className="text-xs mb-2" style={{ color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>₺{remaining} {t('cart_free_delivery')}</p>
                   <div className="h-1.5 rounded-full overflow-hidden" style={{ background: '#E5DDD0' }}>
@@ -66,7 +96,7 @@ export default function CartDrawer() {
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-semibold truncate" style={{ fontFamily: "'Montserrat', sans-serif", color: '#1A1A1A' }}>{item.meal.name}</h4>
                     <p className="text-xs mt-0.5" style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
-                      {item.isCreditBased ? `${item.quantity} ${t('meal_credit')}` : `₺${item.meal.price}`}
+                      {item.isCreditBased ? `1 ${t('meal_credit')}` : `₺${item.meal.price}`}
                     </p>
                   </div>
                   <div className="flex items-center gap-1.5">
@@ -86,13 +116,31 @@ export default function CartDrawer() {
           )}
         </div>
 
+        {/* Footer */}
         {state.cart.length > 0 && (
           <div className="px-6 py-5 border-t" style={{ borderColor: '#E5DDD0' }}>
-            {!state.subscriptionPlan && (
+            {isSubscription ? (
+              /* Subscription summary */
+              <div className="space-y-2 mb-4">
+                <div className="flex justify-between text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                  <span style={{ color: '#8A8A8A' }}>{state.subscriptionPlan!.name}</span>
+                  <span style={{ color: green, fontWeight: 700 }}>₺{state.subscriptionPlan!.price.toLocaleString('tr-TR')}</span>
+                </div>
+                <div className="flex justify-between text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                  <span style={{ color: '#8A8A8A' }}>{t('cart_delivery')}</span>
+                  <span style={{ color: green }}>{t('cart_free')}</span>
+                </div>
+                <div className="flex justify-between font-semibold pt-2 border-t" style={{ borderColor: '#E5DDD0' }}>
+                  <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, color: '#1A1A1A', fontSize: '1rem' }}>{t('cart_total')}</span>
+                  <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, color: '#1A1A1A', fontSize: '1rem' }}>₺{state.subscriptionPlan!.price.toLocaleString('tr-TR')}</span>
+                </div>
+              </div>
+            ) : (
+              /* À la carte summary */
               <div className="space-y-2 mb-4">
                 <div className="flex justify-between text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                   <span style={{ color: '#8A8A8A' }}>{t('cart_subtotal')}</span>
-                  <span style={{ color: '#1A1A1A' }}>₺{total.toLocaleString('tr-TR')}</span>
+                  <span style={{ color: '#1A1A1A' }}>₺{alacarteTotal.toLocaleString('tr-TR')}</span>
                 </div>
                 <div className="flex justify-between text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                   <span style={{ color: '#8A8A8A' }}>{t('cart_delivery')}</span>
@@ -100,7 +148,7 @@ export default function CartDrawer() {
                 </div>
                 <div className="flex justify-between font-semibold pt-2 border-t" style={{ borderColor: '#E5DDD0' }}>
                   <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, color: '#1A1A1A', fontSize: '1rem' }}>{t('cart_total')}</span>
-                  <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, color: '#1A1A1A', fontSize: '1rem' }}>₺{(total + deliveryFee).toLocaleString('tr-TR')}</span>
+                  <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, color: '#1A1A1A', fontSize: '1rem' }}>₺{(alacarteTotal + deliveryFee).toLocaleString('tr-TR')}</span>
                 </div>
               </div>
             )}
