@@ -14,8 +14,10 @@ export default function MenuPage() {
   const [activeTags, setActiveTags] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
 
-  const isSubscription = state.orderMode === 'subscription' && state.subscriptionPlan;
+  const isSubscription = state.orderMode === 'subscription' && !!state.subscriptionPlan;
   const usedCredits = state.cart.reduce((sum, item) => sum + (item.isCreditBased ? item.quantity : 0), 0);
+  const totalCredits = state.subscriptionPlan?.mealCount ?? 0;
+  const creditProgress = totalCredits > 0 ? (usedCredits / totalCredits) * 100 : 0;
 
   const toggleTag = (tag: string) => setActiveTags(prev => prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]);
 
@@ -29,23 +31,35 @@ export default function MenuPage() {
 
   return (
     <div className="pt-[72px] min-h-screen" style={{ background: '#FDF6F2' }}>
+
+      {/* Subscription banner — sits directly below the 72px header */}
       {isSubscription && (
-        <div className="sticky top-[72px] z-40 border-b" style={{ background: '#E8F0E8', borderColor: `rgba(30,63,48,0.15)` }}>
-          <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 py-3 flex items-center justify-between">
-            <div className="flex items-center gap-2 text-sm font-medium" style={{ color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>
-              <span>🎫</span>
-              <span>{state.subscriptionPlan!.mealCount} {t('nav_packages')}</span>
-              <span style={{ color: '#8A8A8A' }}>·</span>
-              <span style={{ color: '#4A4A4A' }}>{t('menu_credits_used')} {usedCredits}</span>
+        <div className="sticky top-[72px] z-40 border-b" style={{ background: '#E8F0E8', borderColor: 'rgba(30,63,48,0.2)' }}>
+          <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 py-3 flex items-center justify-between gap-4">
+            {/* Left: plan name + credit counts */}
+            <div className="flex items-center gap-1.5 text-sm font-medium flex-wrap" style={{ color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>
+              <span>📦</span>
+              <span style={{ fontWeight: 700, color: green }}>{state.subscriptionPlan!.name}</span>
+              <span style={{ color: '#8A8A8A' }}>|</span>
+              <span style={{ color: '#4A4A4A' }}>Sepette: <strong>{usedCredits}</strong></span>
+              <span style={{ color: '#8A8A8A' }}>|</span>
+              <span style={{ color: green, fontWeight: 600 }}>Kalan: <strong>{state.creditsRemaining}</strong></span>
             </div>
-            <span className="text-sm font-semibold" style={{ color: green, fontFamily: "'Montserrat', sans-serif" }}>
-              {state.creditsRemaining} {t('menu_credits')}
-            </span>
+            {/* Right: mini progress bar */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="w-24 h-2 rounded-full overflow-hidden" style={{ background: `${green}20` }}>
+                <div className="h-full rounded-full transition-all duration-500" style={{ width: `${creditProgress}%`, background: green }} />
+              </div>
+              <span className="text-xs font-semibold" style={{ color: green, fontFamily: "'Montserrat', sans-serif" }}>
+                {usedCredits}/{totalCredits}
+              </span>
+            </div>
           </div>
         </div>
       )}
 
-      <div className={`sticky ${isSubscription ? 'top-[112px]' : 'top-[72px]'} z-30 border-b`}
+      {/* Filter bar — top offset accounts for header (72px) + optional banner (~52px) */}
+      <div className={`sticky ${isSubscription ? 'top-[124px]' : 'top-[72px]'} z-30 border-b`}
         style={{ background: 'rgba(253,246,242,0.96)', backdropFilter: 'blur(12px)', borderColor: '#E5DDD0' }}>
         <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 py-4">
           <div className="relative mb-4">

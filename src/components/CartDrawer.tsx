@@ -47,12 +47,9 @@ export default function CartDrawer() {
         {/* Subscription plan banner */}
         {isSubscription && (
           <div className="px-6 py-3 border-b" style={{ background: '#E8F0E8', borderColor: `${green}20` }}>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-3">
               <span className="text-sm font-semibold" style={{ color: green, fontFamily: "'Montserrat', sans-serif" }}>
-                📦 {state.subscriptionPlan!.name}
-              </span>
-              <span className="text-sm font-semibold" style={{ color: green, fontFamily: "'Montserrat', sans-serif" }}>
-                {creditsUsed} / {totalCredits} {t('cart_items')}
+                📦 {state.subscriptionPlan!.name} — {creditsUsed}/{totalCredits} öğün seçildi
               </span>
             </div>
             {/* Credits progress bar */}
@@ -128,7 +125,7 @@ export default function CartDrawer() {
                 </div>
                 <div className="flex justify-between text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                   <span style={{ color: '#8A8A8A' }}>{t('cart_delivery')}</span>
-                  <span style={{ color: green }}>{t('cart_free')}</span>
+                  <span style={{ color: green }}>Ücretsiz Teslimat ✓</span>
                 </div>
                 <div className="flex justify-between font-semibold pt-2 border-t" style={{ borderColor: '#E5DDD0' }}>
                   <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, color: '#1A1A1A', fontSize: '1rem' }}>{t('cart_total')}</span>
