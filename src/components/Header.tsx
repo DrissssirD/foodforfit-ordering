@@ -10,6 +10,8 @@ const LANGS: { code: Lang; label: string; flag: string }[] = [
   { code: 'ru', label: 'RU', flag: '🇷🇺' },
 ];
 
+const green = '#1E3F30';
+
 export default function Header() {
   const { state, dispatch } = useApp();
   const t = useT(state.lang);
@@ -28,7 +30,6 @@ export default function Header() {
     { page: 'menu' as const, label: t('nav_menu') },
   ];
 
-  const green = '#2C5F2E';
   const isActive = (p: string) => state.currentPage === p || (state.currentPage === 'home' && p === 'packages');
 
   return (
@@ -36,9 +37,9 @@ export default function Header() {
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500`}
       style={{
         height: 72,
-        background: scrolled ? 'rgba(250,247,242,0.97)' : 'rgba(250,247,242,0.85)',
+        background: '#FDF6F2',
         backdropFilter: 'blur(12px)',
-        borderBottom: scrolled ? '1px solid #E5DDD0' : 'none',
+        borderBottom: `3px solid ${green}`,
         boxShadow: scrolled ? '0 2px 20px rgba(0,0,0,0.06)' : 'none',
       }}
     >
@@ -46,9 +47,9 @@ export default function Header() {
         {/* Logo */}
         <button onClick={() => dispatch({ type: 'SET_PAGE', payload: 'packages' })} className="flex items-center gap-3 cursor-pointer hover:opacity-75 transition-opacity">
           <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: green }}>
-            <span style={{ color: '#C8A97A', fontFamily: "'Playfair Display', serif", fontWeight: 700, fontSize: '1.1rem' }}>F</span>
+            <span style={{ color: '#C8A97A', fontFamily: "'Montserrat', sans-serif", fontWeight: 800, fontSize: '1.1rem' }}>F</span>
           </div>
-          <span style={{ fontFamily: "'Playfair Display', serif", fontWeight: 600, fontSize: '1.2rem', color: '#1A1A1A' }}>
+          <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 800, fontSize: '1.2rem', color: '#1A1A1A' }}>
             Food<span style={{ color: green }}>ForFit</span>
           </span>
         </button>
@@ -58,7 +59,7 @@ export default function Header() {
           {navLinks.map(link => (
             <button key={link.page} onClick={() => dispatch({ type: 'SET_PAGE', payload: link.page })}
               className="text-sm font-medium tracking-wide transition-colors cursor-pointer"
-              style={{ color: isActive(link.page) ? green : '#4A4A4A', fontFamily: "'DM Sans', sans-serif" }}>
+              style={{ color: isActive(link.page) ? green : '#4A4A4A', fontFamily: "'Montserrat', sans-serif", fontWeight: isActive(link.page) ? 700 : 500 }}>
               {link.label}
             </button>
           ))}
@@ -71,7 +72,7 @@ export default function Header() {
             <button
               onClick={() => setLangOpen(!langOpen)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl transition-colors cursor-pointer hover:opacity-75"
-              style={{ fontFamily: "'DM Sans', sans-serif", fontSize: '13px', fontWeight: 500, color: '#4A4A4A' }}
+              style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', fontWeight: 500, color: '#4A4A4A' }}
             >
               <Globe size={15} style={{ color: '#8A8A8A' }} />
               {LANGS.find(l => l.code === state.lang)?.flag} {state.lang.toUpperCase()}
@@ -79,7 +80,7 @@ export default function Header() {
             {langOpen && (
               <div
                 className="absolute right-0 top-full mt-1 rounded-2xl overflow-hidden py-1 animate-fade-in-up"
-                style={{ background: '#FFFDF9', border: '1.5px solid #E5DDD0', boxShadow: '0 8px 30px rgba(0,0,0,0.1)', minWidth: 110 }}
+                style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0', boxShadow: '0 8px 30px rgba(0,0,0,0.1)', minWidth: 110 }}
               >
                 {LANGS.map(l => (
                   <button key={l.code} onClick={() => { dispatch({ type: 'SET_LANG', payload: l.code }); setLangOpen(false); }}
@@ -87,7 +88,7 @@ export default function Header() {
                     style={{
                       background: state.lang === l.code ? '#E8F0E8' : 'transparent',
                       color: state.lang === l.code ? green : '#4A4A4A',
-                      fontFamily: "'DM Sans', sans-serif", fontWeight: state.lang === l.code ? 600 : 400,
+                      fontFamily: "'Montserrat', sans-serif", fontWeight: state.lang === l.code ? 600 : 400,
                     }}
                   >
                     {l.flag} {l.label}
@@ -100,7 +101,7 @@ export default function Header() {
           {/* Admin */}
           <button onClick={() => dispatch({ type: 'SET_PAGE', payload: 'admin' })}
             className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-medium transition-colors cursor-pointer"
-            style={{ color: '#8A8A8A', fontFamily: "'DM Sans', sans-serif" }}
+            style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}
             title={t('nav_admin')}
           >
             ⚙️
@@ -114,7 +115,7 @@ export default function Header() {
             <ShoppingCart size={20} style={{ color: '#1A1A1A' }} />
             {itemCount > 0 && (
               <span className="absolute -top-1 -right-1 w-5 h-5 text-white text-xs font-bold rounded-full flex items-center justify-center"
-                style={{ background: green, fontFamily: "'DM Sans', sans-serif" }}>
+                style={{ background: green, fontFamily: "'Montserrat', sans-serif" }}>
                 {itemCount}
               </span>
             )}
@@ -130,18 +131,18 @@ export default function Header() {
 
       {/* Mobile dropdown */}
       {state.mobileMenuOpen && (
-        <div className="md:hidden border-t animate-fade-in-up" style={{ background: '#FAF7F2', borderColor: '#E5DDD0' }}>
+        <div className="md:hidden border-t animate-fade-in-up" style={{ background: '#FDF6F2', borderColor: '#E5DDD0' }}>
           <nav className="px-5 py-4 flex flex-col gap-1">
             {navLinks.map(link => (
               <button key={link.page} onClick={() => dispatch({ type: 'SET_PAGE', payload: link.page })}
                 className="text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors cursor-pointer"
-                style={{ background: isActive(link.page) ? '#E8F0E8' : 'transparent', color: isActive(link.page) ? green : '#4A4A4A', fontFamily: "'DM Sans', sans-serif" }}>
+                style={{ background: isActive(link.page) ? '#E8F0E8' : 'transparent', color: isActive(link.page) ? green : '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
                 {link.label}
               </button>
             ))}
             <button onClick={() => dispatch({ type: 'SET_PAGE', payload: 'admin' })}
               className="text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors cursor-pointer"
-              style={{ color: '#8A8A8A', fontFamily: "'DM Sans', sans-serif" }}>
+              style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
               ⚙️ {t('nav_admin')}
             </button>
           </nav>
