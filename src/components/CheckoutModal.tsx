@@ -62,8 +62,11 @@ export default function CheckoutModal() {
   const [form, setForm] = useState<FormData>(initialForm);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
 
-  const total = useCartTotal(state.cart);
-  const deliveryFee = total >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE;
+  const alacarteTotal = useCartTotal(state.cart);
+  const isSubscription = !!state.subscriptionPlan;
+  // Subscription: total = plan price, free delivery. À la carte: normal calculation.
+  const deliveryFee = isSubscription ? 0 : (alacarteTotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE);
+  const orderTotal = isSubscription ? (state.subscriptionPlan?.price ?? 0) : alacarteTotal + deliveryFee;
   const deliveryDates = getDeliveryDates(state.lang);
 
   if (!state.checkoutOpen) return null;
@@ -110,7 +113,7 @@ export default function CheckoutModal() {
       const order: Order = {
         id: `order-${Date.now()}`, orderNumber: orderNum,
         customerName: form.name, customerPhone: form.phone, customerEmail: form.email,
-        items: [...state.cart], total: total + deliveryFee,
+        items: [...state.cart], total: orderTotal,
         deliveryType: form.deliveryType, address: form.address, district: form.district,
         deliveryDate: form.deliveryDate, deliveryTime: form.deliveryTime,
         paymentMethod: form.paymentMethod, status: 'pending',
@@ -239,18 +242,28 @@ export default function CheckoutModal() {
                 <div className="p-4 rounded-xl" style={{ background: '#FFFFFF', border: '1px solid #E5DDD0' }}>
                   <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", marginBottom: '12px' }}>{t('chk_summary')}</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {state.cart.map(item => (
-                      <div key={item.meal.id} className="flex justify-between" style={{ fontSize: '13px', color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
-                        <span>{item.meal.name} × {item.quantity}</span>
-                        <span>{item.isCreditBased ? `${item.quantity} ${t('meal_credit')}` : `₺${(item.meal.price * item.quantity).toLocaleString('tr-TR')}`}</span>
+                    {isSubscription ? (
+                      /* Subscription summary: show plan name + meal count */
+                      <div className="flex justify-between" style={{ fontSize: '13px', color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
+                        <span>📦 {state.subscriptionPlan!.name}</span>
+                        <span>{state.subscriptionPlan!.mealCount} {t('cart_items')}</span>
                       </div>
-                    ))}
+                    ) : (
+                      /* À la carte: list each item */
+                      state.cart.map(item => (
+                        <div key={item.meal.id} className="flex justify-between" style={{ fontSize: '13px', color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
+                          <span>{item.meal.name} × {item.quantity}</span>
+                          <span>₺{(item.meal.price * item.quantity).toLocaleString('tr-TR')}</span>
+                        </div>
+                      ))
+                    )}
                     <div style={{ borderTop: '1px solid #E5DDD0', paddingTop: '10px', marginTop: '4px' }}>
                       <div className="flex justify-between" style={{ fontSize: '13px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif", marginBottom: '4px' }}>
-                        <span>{t('cart_delivery')}</span><span>{deliveryFee === 0 ? t('cart_free') : `₺${deliveryFee}`}</span>
+                        <span>{t('cart_delivery')}</span>
+                        <span style={{ color: deliveryFee === 0 ? green : '#1A1A1A' }}>{deliveryFee === 0 ? t('cart_free') : `₺${deliveryFee}`}</span>
                       </div>
                       <div className="flex justify-between" style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>
-                        <span>{t('cart_total')}</span><span>₺{(total + deliveryFee).toLocaleString('tr-TR')}</span>
+                        <span>{t('cart_total')}</span><span>₺{orderTotal.toLocaleString('tr-TR')}</span>
                       </div>
                     </div>
                   </div>

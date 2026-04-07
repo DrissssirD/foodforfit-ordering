@@ -11,7 +11,15 @@ import FitAssistant from './components/FitAssistant';
 import AdminDashboard from './components/AdminDashboard';
 
 function AppContent() {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
+
+  // Route to admin panel if URL is /admin
+  useEffect(() => {
+    if (window.location.pathname === '/admin') {
+      dispatch({ type: 'SET_PAGE', payload: 'admin' });
+    }
+  }, []);
+
   useEffect(() => { window.scrollTo({ top: 0, behavior: 'smooth' }); }, [state.currentPage]);
 
   if (state.currentPage === 'admin') {
@@ -27,7 +35,7 @@ function AppContent() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#FAF7F2' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: '#FDF6F2' }}>
       <Header />
       <main className="flex-1">{renderPage()}</main>
       {state.currentPage !== 'success' && <Footer />}

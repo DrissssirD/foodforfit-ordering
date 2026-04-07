@@ -7,6 +7,11 @@ const green = '#1E3F30';
 export default function SuccessPage() {
   const { state, dispatch } = useApp();
   const t = useT(state.lang);
+
+  // The most recent order is always first in the array after COMPLETE_ORDER
+  const lastOrder = state.orders[0];
+  const planName = lastOrder?.subscriptionPlan?.name;
+
   return (
     <div className="min-h-screen flex items-center justify-center p-6" style={{ background: '#FDF6F2' }}>
       <div className="text-center max-w-md">
@@ -17,6 +22,11 @@ export default function SuccessPage() {
         {state.orderNumber && (
           <p className="text-sm mb-2 font-medium" style={{ color: green, fontFamily: "'Montserrat', sans-serif" }}>
             {t('success_order')} <strong>{state.orderNumber}</strong>
+          </p>
+        )}
+        {planName && (
+          <p className="text-sm mb-2 font-medium" style={{ color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
+            📦 {t('success_plan')} <strong>{planName}</strong>
           </p>
         )}
         <p className="mb-8" style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif", lineHeight: '1.6' }}>{t('success_sub')}</p>

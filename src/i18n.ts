@@ -81,6 +81,7 @@ export const translations = {
     // Success
     success_title: 'Siparişiniz Alındı!',
     success_order: 'Sipariş No:',
+    success_plan: 'Paketiniz:',
     success_sub: 'Siparişiniz başarıyla alındı. En kısa sürede hazırlanarak size ulaştırılacak.',
     success_home: 'Ana Sayfaya Dön',
     // AI
@@ -208,6 +209,7 @@ export const translations = {
     err_cvv: 'CVV is required',
     success_title: 'Order Received!',
     success_order: 'Order No:',
+    success_plan: 'Your package:',
     success_sub: 'Your order has been successfully placed and will be delivered shortly.',
     success_home: 'Back to Home',
     ai_title: 'FIT Assistant',
@@ -326,6 +328,7 @@ export const translations = {
     err_cvv: 'CVV обязателен',
     success_title: 'Заказ принят!',
     success_order: 'Номер заказа:',
+    success_plan: 'Ваш пакет:',
     success_sub: 'Ваш заказ успешно принят и будет доставлен в ближайшее время.',
     success_home: 'На главную',
     ai_title: 'FIT Ассистент',
