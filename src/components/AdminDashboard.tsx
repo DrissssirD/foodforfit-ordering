@@ -1,6 +1,6 @@
 import { getMealGradient, getMealEmoji } from '../data';
 import { useState } from 'react';
-import { ArrowLeft, Package, UtensilsCrossed, ShoppingBag, Plus, Trash2, Edit3, Check, X, Eye, EyeOff, BarChart2, Bot, Settings, ImagePlus } from 'lucide-react';
+import { ArrowLeft, Package, UtensilsCrossed, ShoppingBag, Plus, Trash2, Edit3, Check, X, Eye, EyeOff, BarChart2, Bot, Settings, ImagePlus, Truck, CreditCard } from 'lucide-react';
 import { useApp } from '../store';
 import { useT } from '../i18n';
 import type { Meal, SubscriptionPlan, Order } from '../types';
@@ -137,6 +137,13 @@ function OrdersTab() {
                 <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
                   ⏰ {order.deliveryTime}
                 </p>
+                <div className="flex items-center gap-2 mt-1" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: green, fontWeight: 600 }}>
+                  {order.paymentMethod === 'cod' ? (
+                    <><Truck size={14} /> Kapıda Ödeme (COD)</>
+                  ) : (
+                    <><CreditCard size={14} /> Kartla Ödeme (Online)</>
+                  )}
+                </div>
               </div>
 
               {order.notes && (
