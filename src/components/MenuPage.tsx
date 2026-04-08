@@ -85,7 +85,7 @@ export default function MenuPage() {
                   fontFamily: "'Montserrat', sans-serif",
                   boxShadow: activeCategory === cat.key ? '0 2px 8px rgba(30,63,48,0.2)' : 'none',
                 }}>
-                {cat.emoji} {cat.label}
+                {cat.emoji} {state.lang === 'en' ? (cat as any).enLabel : state.lang === 'ru' ? (cat as any).ruLabel : cat.label}
               </button>
             ))}
           </div>
@@ -99,7 +99,7 @@ export default function MenuPage() {
                   border: activeTags.includes(tag.key) ? `1.5px solid ${green}` : '1.5px solid transparent',
                   fontFamily: "'Montserrat', sans-serif",
                 }}>
-                {activeTags.includes(tag.key) && '✓ '}{tag.label}
+                {activeTags.includes(tag.key) && '✓ '}{state.lang === 'en' ? (tag as any).enLabel : state.lang === 'ru' ? (tag as any).ruLabel : tag.label}
               </button>
             ))}
           </div>

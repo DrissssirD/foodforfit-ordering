@@ -24,7 +24,11 @@ export const meals: Meal[] = [
   {
     id: 'k2',
     name: 'Hollandez Soslu & Mantarlı Poşe Yumurta',
+    enName: 'Poached Egg with Hollandaise & Mushroom',
+    ruName: 'Яйцо пашот с голландским соусом и грибами',
     description: 'Yumurta, labne, avokado püresi, mantar, bernez sos, roka, maydanoz, kişniş, yeşil zeytin, ekşi maya ekmek',
+    enDescription: 'Egg, labneh, avocado puree, mushroom, bearnaise sauce, arugula, parsley, coriander, green olives, sourdough bread',
+    ruDescription: 'Яйцо, лабне, пюре из авокадо, грибы, беарнский соус, руккола, петрушка, кориандр, зеленые оливки, хлеб на закваске',
     category: 'kahvalti',
     imageUrl: 'https://foodforfitofficial.com/storage/255/1730966418.jpg',
     price: 600,
@@ -39,7 +43,11 @@ export const meals: Meal[] = [
   {
     id: 'k3',
     name: 'Çırpılmış Yumurta',
+    enName: 'Scrambled Eggs',
+    ruName: 'Яичница-болтунья',
     description: 'Yumurta, süt, avokado püre, domates, kapya biber, roka, maydanoz, yeşil zeytin, kişniş, ekşi maya ekmek',
+    enDescription: 'Egg, milk, avocado puree, tomato, capia pepper, arugula, parsley, green olives, coriander, sourdough bread',
+    ruDescription: 'Яйцо, молоко, пюре из авокадо, помидор, перец капия, руккола, петрушка, зеленые оливки, кориандр, хлеб на закваске',
     category: 'kahvalti',
     imageUrl: 'https://foodforfitofficial.com/storage/249/1730879633.jpg',
     price: 550,
@@ -417,21 +425,21 @@ export const subscriptionPlans: SubscriptionPlan[] = [
 ];
 
 export const categories = [
-  { key: 'all', label: 'Tüm Menü', emoji: '🍽️' },
-  { key: 'kahvalti', label: 'Kahvaltılar', emoji: '🍳' },
-  { key: 'ana', label: 'Ana Öğünler', emoji: '🍲' },
-  { key: 'kase', label: 'Kaseler & Salatalar', emoji: '🥗' },
-  { key: 'smoothie', label: "İçecekler", emoji: '🥤' },
-  { key: 'tatli', label: "Şekersiz Tatlılar", emoji: '🍰' },
+  { key: 'all', label: 'Tüm Menü', enLabel: 'Full Menu', ruLabel: 'Всё меню', emoji: '🍽️' },
+  { key: 'kahvalti', label: 'Kahvaltılar', enLabel: 'Breakfast', ruLabel: 'Завтраки', emoji: '🍳' },
+  { key: 'ana', label: 'Ana Öğünler', enLabel: 'Main Courses', ruLabel: 'Основные блюда', emoji: '🥩' },
+  { key: 'kase', label: 'Kaseler & Salatalar', enLabel: 'Bowls & Salads', ruLabel: 'Боулы и салаты', emoji: '🥗' },
+  { key: 'smoothie', label: "İçecekler", enLabel: 'Drinks', ruLabel: 'Напитки', emoji: '🥤' },
+  { key: 'tatli', label: "Şekersiz Tatlılar", enLabel: 'Sugar-Free Desserts', ruLabel: 'Десерты без сахара', emoji: '🍰' },
 ];
 
 export const tagOptions = [
-  { key: 'vejetaryen', label: 'Vejetaryen' },
-  { key: 'vegan', label: 'Vegan' },
-  { key: 'yuksek-protein', label: 'Yüksek Protein' },
-  { key: 'sekersiz', label: 'Şekersiz' },
-  { key: 'omega-3', label: 'Omega-3' },
-  { key: 'detoks', label: 'Detoks' },
+  { key: 'vejetaryen', label: 'Vejetaryen', enLabel: 'Vegetarian', ruLabel: 'Вегетарианское' },
+  { key: 'vegan', label: 'Vegan', enLabel: 'Vegan', ruLabel: 'Веганское' },
+  { key: 'yuksek-protein', label: 'Yüksek Protein', enLabel: 'High Protein', ruLabel: 'Высокий белок' },
+  { key: 'sekersiz', label: 'Şekersiz', enLabel: 'Sugar-Free', ruLabel: 'Без сахара' },
+  { key: 'omega-3', label: 'Omega-3', enLabel: 'Omega-3', ruLabel: 'Омега-3' },
+  { key: 'detoks', label: 'Detoks', enLabel: 'Detox', ruLabel: 'Детокс' },
 ];
 
 export function getMealGradient(meal: Meal): string {
