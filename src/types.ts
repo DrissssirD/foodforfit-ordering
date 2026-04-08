@@ -21,11 +21,17 @@ export interface Meal {
 export interface SubscriptionPlan {
   id: string;
   name: string;
+  enName?: string;
+  ruName?: string;
   mealCount: number;
   price: number;
   pricePerMeal: number;
   features: string[];
+  enFeatures?: string[];
+  ruFeatures?: string[];
   badge?: string;
+  enBadge?: string;
+  ruBadge?: string;
   popular?: boolean;
   allowedMealIds?: string[]; // if non-empty, only these meals are available in the package
 }

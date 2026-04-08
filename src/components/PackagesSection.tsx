@@ -46,18 +46,19 @@ export default function PackagesSection({ fullPage }: Props) {
                 border: plan.popular ? 'none' : '1.5px solid #E5DDD0',
                 boxShadow: plan.popular ? '0 20px 60px rgba(30,63,48,0.25)' : '0 4px 20px rgba(0,0,0,0.04)',
               }}>
-              {plan.badge && (
+              {/* Badges Localized */}
+              {(plan.enBadge || plan.ruBadge || plan.badge) && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
                   <span className="px-4 py-1.5 text-xs font-semibold rounded-full uppercase tracking-wider"
                     style={{ background: plan.popular ? '#C8A97A' : green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>
-                    {plan.badge}
+                    {state.lang === 'en' ? (plan.enBadge || plan.badge) : state.lang === 'ru' ? (plan.ruBadge || plan.badge) : plan.badge}
                   </span>
                 </div>
               )}
               <div className="text-center mb-7 pt-1">
                 <h3 className="text-xl md:text-2xl font-bold mb-2"
                   style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, color: plan.popular ? '#FFFFFF' : '#1A1A1A' }}>
-                  {plan.name}
+                  {state.lang === 'en' ? (plan.enName || plan.name) : state.lang === 'ru' ? (plan.ruName || plan.name) : plan.name}
                 </h3>
                 <p className="text-sm" style={{ color: plan.popular ? 'rgba(255,255,255,0.6)' : '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
                   {plan.mealCount} {t('pkg_meals_per')}
@@ -73,7 +74,7 @@ export default function PackagesSection({ fullPage }: Props) {
                 </p>
               </div>
               <ul className="space-y-3 mb-8">
-                {plan.features.map((feature, i) => (
+                {(state.lang === 'en' && plan.enFeatures ? plan.enFeatures : state.lang === 'ru' && plan.ruFeatures ? plan.ruFeatures : plan.features).map((feature, i) => (
                   <li key={i} className="flex items-center gap-3 text-sm"
                     style={{ color: plan.popular ? 'rgba(255,255,255,0.85)' : '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
                     <div className="w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0"
