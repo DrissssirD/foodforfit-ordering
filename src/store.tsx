@@ -1,7 +1,9 @@
-import React, { createContext, useContext, useReducer, type ReactNode } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
 import type { CartItem, Meal, SubscriptionPlan, Page, Order, ChatConversation } from './types';
 import type { Lang } from './i18n';
 import { meals as initialMeals, subscriptionPlans as initialPlans } from './data';
+
+const STORAGE_KEY = 'foodforfit_state_v1';
 
 const DEFAULT_AI_PROMPT = `You are FIT Assistant, a friendly nutrition and meal planning assistant for Food For Fit — a premium healthy meal delivery service in Turkey.
 
@@ -26,7 +28,7 @@ interface AppState {
   orderNumber: string | null;
   lang: Lang;
   orders: Order[];
-  adminMeals: typeof initialMeals;
+  adminMeals: Meal[];
   adminPlans: SubscriptionPlan[];
   isAdmin: boolean;
   adminPassword: string;
@@ -124,7 +126,7 @@ const initialState: AppState = {
   adminPassword: 'admin123',
   aiEnabled: true,
   aiSystemPrompt: DEFAULT_AI_PROMPT,
-  aiQuickButtons: ['📦 Paket öner', '🔥 Kalori sorusu', '🚚 Teslimat bilgisi'],
+  aiQuickButtons: ['🥗 Paket Öner', '🔥 Kalori sorusu', '🚚 Teslimat bilgisi'],
   chatHistory: [],
   trackingOrderNumber: null,
   aiAssistantEnabled: true,
@@ -141,6 +143,27 @@ const initialState: AppState = {
     closedMessage: 'Şu an sipariş almıyoruz. Yakında tekrar açılacağız.',
   },
 };
+
+// Merge with localStorage if exists
+function getInitialState(): AppState {
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (!saved) return initialState;
+    const parsed = JSON.parse(saved);
+    // Ensure we reset transient UI state
+    return {
+      ...initialState,
+      ...parsed,
+      cartOpen: false,
+      checkoutOpen: false,
+      mobileMenuOpen: false,
+      currentPage: 'home',
+      isAdmin: false, // Security: don't persist admin login across sessions if you want
+    };
+  } catch {
+    return initialState;
+  }
+}
 
 function reducer(state: AppState, action: Action): AppState {
   switch (action.type) {
@@ -255,7 +278,13 @@ function reducer(state: AppState, action: Action): AppState {
 const AppContext = createContext<{ state: AppState; dispatch: React.Dispatch<Action> }>({ state: initialState, dispatch: () => {} });
 
 export function AppProvider({ children }: { children: ReactNode }) {
-  const [state, dispatch] = useReducer(reducer, initialState);
+  const [state, dispatch] = useReducer(reducer, getInitialState());
+
+  // Save to localStorage whenever state changes
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }, [state]);
+
   return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>;
 }
 

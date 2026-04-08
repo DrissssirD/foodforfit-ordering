@@ -26,8 +26,14 @@ export default function MenuPage() {
     if (activeCategory !== 'all' && meal.category !== activeCategory) return false;
     if (activeTags.length > 0 && !activeTags.some(t => meal.tags.includes(t))) return false;
     if (searchQuery && !meal.name.toLowerCase().includes(searchQuery.toLowerCase())) return false;
+    
+    // Filter by allowed meals in subscription plan
+    if (isSubscription && state.subscriptionPlan?.allowedMealIds && state.subscriptionPlan.allowedMealIds.length > 0) {
+      if (!state.subscriptionPlan.allowedMealIds.includes(meal.id)) return false;
+    }
+    
     return true;
-  }), [activeCategory, activeTags, searchQuery, state.adminMeals]);
+  }), [activeCategory, activeTags, searchQuery, state.adminMeals, isSubscription, state.subscriptionPlan]);
 
   return (
     <div className="pt-[72px] min-h-screen" style={{ background: '#FDF6F2' }}>

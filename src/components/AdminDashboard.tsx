@@ -122,18 +122,64 @@ function OrdersTab() {
               </div>
 
               {/* Customer info */}
-              <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '14px', color: '#4A4A4A', marginBottom: '2px' }}>
-                {order.customerName} · {order.customerPhone}
-              </p>
-              <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', marginBottom: '2px' }}>
-                {order.deliveryType === 'teslimat' ? 'Teslimat' : 'Gel-Al'}
-                {order.district ? ` · ${order.district}` : ''} · {order.deliveryTime}
-              </p>
-              {order.subscriptionPlan && (
-                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: green, marginBottom: '2px' }}>
-                  📦 {order.subscriptionPlan.name}
+              <div className="mt-2 space-y-1">
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '14px', color: '#1A1A1A', fontWeight: 600 }}>
+                  {order.customerName}
                 </p>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
+                  📞 {order.customerPhone} | 📧 {order.customerEmail}
+                </p>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
+                  📍 {order.deliveryType === 'teslimat' ? 'Teslimat' : 'Gel-Al'}
+                  {order.address ? ` - ${order.address}` : ''}
+                  {order.district ? ` (${order.district})` : ''}
+                </p>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
+                  ⏰ {order.deliveryTime}
+                </p>
+              </div>
+
+              {order.notes && (
+                <div className="mt-3 p-3 rounded-lg" style={{ background: '#FDF6F2', border: '1px solid #E5DDD0' }}>
+                  <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11px', fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', marginBottom: '4px' }}>
+                    Müşteri Notu
+                  </p>
+                  <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A', fontStyle: 'italic' }}>
+                    "{order.notes}"
+                  </p>
+                </div>
               )}
+
+              {/* Order Items */}
+              <div className="mt-4">
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11px', fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', marginBottom: '8px' }}>
+                  Sipariş İçeriği
+                </p>
+                <div className="space-y-2">
+                  {order.items.map((item, idx) => (
+                    <div key={idx} className="flex items-center justify-between text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                      <div className="flex items-center gap-2">
+                        <span className="w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold" style={{ background: '#F5ECD7', color: gold }}>
+                          {item.quantity}x
+                        </span>
+                        <span style={{ color: '#1A1A1A' }}>{item.meal.name}</span>
+                        {item.isCreditBased && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-800">Paket</span>}
+                      </div>
+                      <span style={{ color: '#8A8A8A' }}>
+                        {item.isCreditBased ? '—' : `₺${(item.meal.price * item.quantity).toLocaleString('tr-TR')}`}
+                      </span>
+                    </div>
+                  ))}
+                  {order.subscriptionPlan && (
+                    <div className="flex items-center gap-2 p-2 rounded-lg mt-1" style={{ background: '#E8F0E8', border: `1px solid ${green}20` }}>
+                      <Package size={14} style={{ color: green }} />
+                      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', fontWeight: 600, color: green }}>
+                        {order.subscriptionPlan.name} (Paket Satın Alımı)
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* Status buttons */}
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t" style={{ borderColor: '#F0EDE8' }}>
@@ -415,11 +461,12 @@ function MenuTab() {
 // PLAN FORM
 // ─────────────────────────────────────────
 const emptyPlan = (): SubscriptionPlan => ({
-  id: '', name: '', mealCount: 14, price: 0, pricePerMeal: 0, features: [''], popular: false,
+  id: '', name: '', mealCount: 14, price: 0, pricePerMeal: 0, features: [''], popular: false, allowedMealIds: [],
 });
 
 function PlanForm({ plan, onSave, onCancel }: { plan: SubscriptionPlan; onSave: (p: SubscriptionPlan) => void; onCancel: () => void }) {
-  const [form, setForm] = useState<SubscriptionPlan>({ ...plan, features: [...plan.features] });
+  const { state } = useApp();
+  const [form, setForm] = useState<SubscriptionPlan>({ ...plan, features: [...plan.features], allowedMealIds: plan.allowedMealIds || [] });
   const f = (k: keyof SubscriptionPlan, v: any) => setForm(p => ({ ...p, [k]: v }));
 
   const iStyle = {
@@ -481,6 +528,34 @@ function PlanForm({ plan, onSave, onCancel }: { plan: SubscriptionPlan; onSave: 
           >
             + Özellik Ekle
           </button>
+        </div>
+        <div className="col-span-2">
+          <label style={lStyle}>Paket İçeriği (İzin Verilen Öğünler)</label>
+          <p style={{ fontSize: '11px', color: '#8A8A8A', marginBottom: '10px' }}>
+            Boş bırakılırsa tüm menü öğeleri seçilebilir olur.
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+            {state.adminMeals.map(meal => {
+              const checked = form.allowedMealIds?.includes(meal.id);
+              return (
+                <label key={meal.id} className="flex items-center gap-2 p-2 rounded-lg cursor-pointer hover:bg-gray-50 transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => {
+                      const current = form.allowedMealIds || [];
+                      const next = checked ? current.filter(id => id !== meal.id) : [...current, meal.id];
+                      f('allowedMealIds', next);
+                    }}
+                    style={{ accentColor: green }}
+                  />
+                  <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#4A4A4A' }}>
+                    {meal.name}
+                  </span>
+                </label>
+              );
+            })}
+          </div>
         </div>
         <div className="col-span-2">
           <label className="flex items-center gap-2 cursor-pointer">

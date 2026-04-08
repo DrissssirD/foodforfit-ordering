@@ -193,6 +193,7 @@ export const subscriptionPlans: SubscriptionPlan[] = [
     features: ['Ücretsiz Teslimat', 'Makro Takibi', 'Esnek Menü', 'Haftalık Değişen Menü'],
     badge: 'En Popüler',
     popular: true,
+    allowedMealIds: [],
   },
   {
     id: 'plan-21',
@@ -203,6 +204,7 @@ export const subscriptionPlans: SubscriptionPlan[] = [
     features: ['Ücretsiz Teslimat', 'Makro Takibi', 'Esnek Menü', 'Haftalık Değişen Menü', 'Diyetisyen Desteği'],
     badge: 'En Uygun',
     popular: false,
+    allowedMealIds: [],
   },
   {
     id: 'plan-28',
@@ -212,6 +214,7 @@ export const subscriptionPlans: SubscriptionPlan[] = [
     pricePerMeal: 429,
     features: ['Ücretsiz Teslimat', 'Makro Takibi', 'Esnek Menü', 'Haftalık Değişen Menü', 'Diyetisyen Desteği', 'Öncelikli Teslimat'],
     popular: false,
+    allowedMealIds: [],
   },
 ];
 
