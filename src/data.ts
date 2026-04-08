@@ -5,7 +5,11 @@ export const meals: Meal[] = [
   {
     id: 'k1',
     name: 'Avokado Poşe Yumurta Tost',
+    enName: 'Avocado Poached Egg Toast',
+    ruName: 'Тост с авокадо и яйцом пашот',
     description: 'Yumurta, labne, avokado püresi, roka, maydanoz, kişniş, yeşil zeytin, ekşi maya ekmek',
+    enDescription: 'Egg, labneh, avocado puree, arugula, parsley, coriander, green olives, sourdough bread',
+    ruDescription: 'Яйцо, лабне, пюре из авокадо, руккола, петрушка, кориандр, зеленые оливки, хлеб на закваске',
     category: 'kahvalti',
     imageUrl: 'https://foodforfitofficial.com/storage/27/1652278561.jpg',
     price: 575,
@@ -82,7 +86,11 @@ export const meals: Meal[] = [
   {
     id: 'a1',
     name: '14. DETOKS TAVUK',
+    enName: '14. Detox Chicken',
+    ruName: '14. Детокс Курица',
     description: 'Detoks tavuk, tam buğday lavaş, fırınlanmış patates cipsi, buharda brokoli, chili sos',
+    enDescription: 'Detox chicken, whole wheat lavash, baked potato chips, steamed broccoli, chili sauce',
+    ruDescription: 'Детокс курица, цельнозерновой лаваш, запеченные картофельные чипсы, брокколи на пару, соус чили',
     category: 'ana',
     imageUrl: 'https://foodforfitofficial.com/storage/44/1652443929.jpg',
     price: 880,

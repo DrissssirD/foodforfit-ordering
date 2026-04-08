@@ -1,13 +1,19 @@
+// import { createClient } from '@supabase/supabase-js';
 import { Order, Meal, SubscriptionPlan } from '../types';
 
 /**
  * PRODUCTION-READY DATABASE SERVICE
- * Currently uses localStorage for immediate functionality.
- * To switch to a real database (Supabase/Firebase), simply replace the 
- * implementation of these functions. All components will continue to work.
+ * 
+ * STEP 1: Enable Supabase
+ * npm install @supabase/supabase-js
+ * 
+ * STEP 2: Configure Client
+ * const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+ * const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+ * const supabase = createClient(supabaseUrl, supabaseAnonKey);
  */
 
-const STORAGE_KEY = 'foodforfit_state_v1';
+const STORAGE_KEY = 'foodforfit_state_v2';
 
 const getLocalState = () => {
   const data = localStorage.getItem(STORAGE_KEY);

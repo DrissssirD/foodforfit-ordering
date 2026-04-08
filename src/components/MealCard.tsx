@@ -56,8 +56,12 @@ export default function MealCard({ meal, compact }: Props) {
         )}
       </div>
       <div className="p-5">
-        <h3 className="text-lg font-bold mb-1 line-clamp-1" style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, color: '#1A1A1A' }}>{meal.name}</h3>
-        <p className="text-xs mb-3 line-clamp-2" style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif", lineHeight: '1.5' }}>{meal.description}</p>
+        <h3 className="text-lg font-bold mb-1 line-clamp-1" style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, color: '#1A1A1A' }}>
+          {state.lang === 'en' ? (meal.enName || meal.name) : state.lang === 'ru' ? (meal.ruName || meal.name) : meal.name}
+        </h3>
+        <p className="text-xs mb-3 line-clamp-2" style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif", lineHeight: '1.5' }}>
+          {state.lang === 'en' ? (meal.enDescription || meal.description) : state.lang === 'ru' ? (meal.ruDescription || meal.description) : meal.description}
+        </p>
         <div className="flex items-center gap-3 text-xs mb-4 flex-wrap" style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
           <span>🔥 {meal.calories} kcal</span><span>·</span>
           <span>💪 {meal.protein}g {state.lang === 'ru' ? 'белок' : state.lang === 'en' ? 'protein' : 'protein'}</span>

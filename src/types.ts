@@ -1,7 +1,11 @@
 export interface Meal {
   id: string;
   name: string;
+  enName?: string;
+  ruName?: string;
   description: string;
+  enDescription?: string;
+  ruDescription?: string;
   category: 'kahvalti' | 'ana' | 'kase' | 'smoothie' | 'tatli';
   imageUrl: string;
   price: number;
