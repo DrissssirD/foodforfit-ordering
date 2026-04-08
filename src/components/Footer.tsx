@@ -19,7 +19,7 @@ export default function Footer() {
           </span>
         </div>
         <div className="flex items-center gap-6">
-          {([['packages', t('nav_packages')], ['menu', t('nav_menu')]] as const).map(([page, label]) => (
+          {([['packages', t('nav_packages')], ['menu', t('nav_menu')], ['track', t('nav_track')]] as const).map(([page, label]) => (
             <button key={page} onClick={() => dispatch({ type: 'SET_PAGE', payload: page })}
               className="text-sm cursor-pointer transition-colors"
               style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}

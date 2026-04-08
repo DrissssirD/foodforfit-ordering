@@ -28,6 +28,7 @@ export default function Header() {
   const navLinks = [
     { page: 'packages' as const, label: t('nav_packages') },
     { page: 'menu' as const, label: t('nav_menu') },
+    { page: 'track' as const, label: t('nav_track') },
   ];
 
   const isActive = (p: string) => state.currentPage === p || (state.currentPage === 'home' && p === 'packages');

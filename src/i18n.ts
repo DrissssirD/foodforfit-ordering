@@ -5,6 +5,7 @@ export const translations = {
     // Nav
     nav_packages: 'Paketler',
     nav_menu: 'Menü',
+    nav_track: 'Sipariş Takibi',
     nav_admin: 'Yönetim',
     nav_cart: 'Sepet',
     // Packages
@@ -140,7 +141,8 @@ export const translations = {
   en: {
     nav_packages: 'Packages',
     nav_menu: 'Menu',
-    nav_admin: 'Admin',
+    nav_track: 'Order Tracking',
+    nav_admin: 'Admin Panel',
     nav_cart: 'Cart',
     pkg_badge: 'Weekly Membership',
     pkg_title: 'Weekly Membership',
@@ -259,7 +261,8 @@ export const translations = {
   ru: {
     nav_packages: 'Пакеты',
     nav_menu: 'Меню',
-    nav_admin: 'Панель',
+    nav_track: 'Отслеживание заказа',
+    nav_admin: 'Админ-панель',
     nav_cart: 'Корзина',
     pkg_badge: 'Недельное членство',
     pkg_title: 'Недельное членство',
