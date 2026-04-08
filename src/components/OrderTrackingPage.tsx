@@ -189,7 +189,6 @@ export default function OrderTrackingPage() {
                     const status = getStepStatus(step.key);
                     const isCompleted = status === 'completed';
                     const isActive = status === 'active';
-                    const isUpcoming = status === 'upcoming';
 
                     return (
                       <div key={step.key} className="flex-1">

@@ -37,9 +37,13 @@ export default function MealCard({ meal, compact }: Props) {
       onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 12px 40px rgba(0,0,0,0.1)'; (e.currentTarget as HTMLDivElement).style.borderColor = '#C8A97A'; }}
       onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 12px rgba(0,0,0,0.04)'; (e.currentTarget as HTMLDivElement).style.borderColor = '#E5DDD0'; }}>
       <div className="relative aspect-[4/3] overflow-hidden" style={{ background: getMealGradient(meal) }}>
-        <div className="absolute inset-0 flex items-center justify-center text-6xl group-hover:scale-110 transition-transform duration-500">
-          {getMealEmoji(meal)}
-        </div>
+        {meal.imageUrl ? (
+          <img src={meal.imageUrl} alt={meal.name} className="w-full h-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center text-6xl group-hover:scale-110 transition-transform duration-500">
+            {getMealEmoji(meal)}
+          </div>
+        )}
         {meal.tags.length > 0 && (
           <div className="absolute top-3 left-3 flex flex-wrap gap-1.5">
             {meal.tags.slice(0, 2).map(tag => (
