@@ -1,18 +1,15 @@
 import { useState } from 'react';
-import { X, Truck, MapPin, CreditCard, Clock } from 'lucide-react';
+import { X, Truck, MapPin, CreditCard } from 'lucide-react';
 import { useApp, useCartTotal } from '../store';
 import { useT } from '../i18n';
 import type { Order } from '../types';
 
-const FREE_DELIVERY_THRESHOLD = 800;
-const DELIVERY_FEE = 50;
 const green = '#1E3F30';
 
 interface FormData {
   deliveryType: 'teslimat' | 'gelal';
   name: string; phone: string; email: string;
   address: string; district: string; postalCode: string;
-  deliveryDate: string; deliveryTime: string;
   paymentMethod: 'cod' | 'card';
   cardNumber: string; cardExpiry: string; cardCvv: string;
   notes: string;
@@ -21,32 +18,9 @@ interface FormData {
 const initialForm: FormData = {
   deliveryType: 'teslimat', name: '', phone: '', email: '',
   address: '', district: '', postalCode: '',
-  deliveryDate: 'today', deliveryTime: '18:00 - 19:00',
   paymentMethod: 'cod', cardNumber: '', cardExpiry: '', cardCvv: '',
   notes: '',
 };
-
-function getDeliveryDates(lang: string) {
-  const dates = []; const today = new Date();
-  const dayNamesTR = ['Pazar','Pazartesi','Salı','Çarşamba','Perşembe','Cuma','Cumartesi'];
-  const dayNamesEN = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-  const dayNamesRU = ['Вск','Пн','Вт','Ср','Чт','Пт','Сб'];
-  const monthsTR = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran','Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
-  const monthsEN = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-  const monthsRU = ['Янв','Фев','Мар','Апр','Май','Июн','Июл','Авг','Сен','Окт','Ноя','Дек'];
-  const days = lang === 'en' ? dayNamesEN : lang === 'ru' ? dayNamesRU : dayNamesTR;
-  const months = lang === 'en' ? monthsEN : lang === 'ru' ? monthsRU : monthsTR;
-  const todayLabel = lang === 'en' ? 'Today' : lang === 'ru' ? 'Сегодня' : 'Bugün';
-  const tmrLabel = lang === 'en' ? 'Tomorrow' : lang === 'ru' ? 'Завтра' : 'Yarın';
-  for (let i = 0; i < 5; i++) {
-    const d = new Date(today); d.setDate(d.getDate() + i);
-    const label = i === 0 ? `${todayLabel} (${d.getDate()} ${months[d.getMonth()]})` : i === 1 ? `${tmrLabel} (${d.getDate()} ${months[d.getMonth()]})` : `${d.getDate()} ${months[d.getMonth()]} ${days[d.getDay()]}`;
-    dates.push({ value: i === 0 ? 'today' : `day-${i}`, label });
-  }
-  return dates;
-}
-
-const timeSlots = ['09:00 - 10:00','10:00 - 11:00','11:00 - 12:00','12:00 - 13:00','13:00 - 14:00','14:00 - 15:00','15:00 - 16:00','16:00 - 17:00','17:00 - 18:00','18:00 - 19:00','19:00 - 20:00','20:00 - 21:00'];
 
 const iStyle = (err: boolean) => ({
   width: '100%', padding: '12px 16px', borderRadius: '12px',
@@ -64,10 +38,12 @@ export default function CheckoutModal() {
 
   const alacarteTotal = useCartTotal(state.cart);
   const isSubscription = !!state.subscriptionPlan;
+  // Use business settings for delivery thresholds
+  const FREE_DELIVERY_THRESHOLD = state.businessSettings.freeDeliveryThreshold;
+  const DELIVERY_FEE = state.businessSettings.deliveryFee;
   // Subscription: total = plan price, free delivery. À la carte: normal calculation.
   const deliveryFee = isSubscription ? 0 : (alacarteTotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE);
   const orderTotal = isSubscription ? (state.subscriptionPlan?.price ?? 0) : alacarteTotal + deliveryFee;
-  const deliveryDates = getDeliveryDates(state.lang);
 
   if (!state.checkoutOpen) return null;
 
@@ -115,7 +91,7 @@ export default function CheckoutModal() {
         customerName: form.name, customerPhone: form.phone, customerEmail: form.email,
         items: [...state.cart], total: orderTotal,
         deliveryType: form.deliveryType, address: form.address, district: form.district,
-        deliveryDate: form.deliveryDate, deliveryTime: form.deliveryTime,
+        deliveryDate: '', deliveryTime: '',
         paymentMethod: form.paymentMethod, status: 'pending',
         createdAt: new Date().toISOString(), subscriptionPlan: state.subscriptionPlan,
         notes: form.notes.trim() || undefined,
@@ -192,17 +168,6 @@ export default function CheckoutModal() {
                     </div>
                   </div>
                 )}
-                <div>
-                  <label style={{ ...labelStyle, display: 'flex', alignItems: 'center', gap: '6px' }}><Clock size={14} />{t('chk_time')}</label>
-                  <div className="grid grid-cols-2 gap-3">
-                    <select value={form.deliveryDate} onChange={e => update('deliveryDate', e.target.value)} style={{ ...iStyle(false), cursor: 'pointer' }}>
-                      {deliveryDates.map(d => <option key={d.value} value={d.value}>{d.label}</option>)}
-                    </select>
-                    <select value={form.deliveryTime} onChange={e => update('deliveryTime', e.target.value)} style={{ ...iStyle(false), cursor: 'pointer' }}>
-                      {timeSlots.map(ts => <option key={ts} value={ts}>{ts}</option>)}
-                    </select>
-                  </div>
-                </div>
                 <div>
                   <label style={labelStyle}>{t('chk_notes')}</label>
                   <textarea

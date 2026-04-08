@@ -13,6 +13,15 @@ export default function PackagesSection({ fullPage }: Props) {
   return (
     <section className={`${fullPage ? 'pt-28 pb-20' : 'py-20'} md:py-28`} style={{ background: '#FDF6F2' }}>
       <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12">
+        {/* Closed Message Banner */}
+        {!state.businessSettings.isAcceptingOrders && (
+          <div className="mb-8 p-4 rounded-xl text-center" style={{ background: '#FEE2E2', border: '1.5px solid #C0392B' }}>
+            <p style={{ color: '#C0392B', fontFamily: "'Montserrat', sans-serif", fontSize: '14px', fontWeight: 600 }}>
+              {state.businessSettings.closedMessage}
+            </p>
+          </div>
+        )}
+
         <div className="text-center mb-14 md:mb-18">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-5 text-xs font-medium tracking-widest uppercase"
             style={{ background: '#E8F0E8', color: green, fontFamily: "'Montserrat', sans-serif" }}>
@@ -76,10 +85,17 @@ export default function PackagesSection({ fullPage }: Props) {
                 ))}
               </ul>
               <button
-                onClick={() => dispatch({ type: 'SELECT_PLAN', payload: plan })}
-                className="w-full py-3.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer"
-                style={{ background: plan.popular ? '#C8A97A' : green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>
-                {t('pkg_select')} <ArrowRight size={16} />
+                onClick={() => !state.businessSettings.isAcceptingOrders || dispatch({ type: 'SELECT_PLAN', payload: plan })}
+                disabled={!state.businessSettings.isAcceptingOrders}
+                className="w-full py-3.5 rounded-full text-sm font-semibold transition-all duration-300 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                style={{ background: state.businessSettings.isAcceptingOrders ? (plan.popular ? '#C8A97A' : green) : '#CCC', color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>
+                {state.businessSettings.isAcceptingOrders ? (
+                  <>
+                    {t('pkg_select')} <ArrowRight size={16} />
+                  </>
+                ) : (
+                  'Şu an kapalı'
+                )}
               </button>
             </div>
           ))}

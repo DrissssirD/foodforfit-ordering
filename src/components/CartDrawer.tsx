@@ -3,8 +3,6 @@ import { useApp, useCartTotal, useCartItemCount } from '../store';
 import { useT } from '../i18n';
 import { getMealGradient, getMealEmoji } from '../data';
 
-const FREE_DELIVERY_THRESHOLD = 800;
-const DELIVERY_FEE = 50;
 const green = '#1E3F30';
 
 export default function CartDrawer() {
@@ -13,6 +11,10 @@ export default function CartDrawer() {
   const alacarteTotal = useCartTotal(state.cart);
   const itemCount = useCartItemCount(state.cart);
   const isSubscription = !!state.subscriptionPlan;
+
+  // Use business settings for delivery thresholds
+  const FREE_DELIVERY_THRESHOLD = state.businessSettings.freeDeliveryThreshold;
+  const DELIVERY_FEE = state.businessSettings.deliveryFee;
 
   // For à la carte: calculate delivery fee; for subscription: always free
   const deliveryFee = isSubscription ? 0 : (alacarteTotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE);
