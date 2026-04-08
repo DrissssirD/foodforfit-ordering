@@ -50,6 +50,7 @@ interface AppState {
     isAcceptingOrders: boolean;
     closedMessage: string;
   };
+  myOrderNumbers: string[];
 }
 
 type Action =
@@ -142,6 +143,7 @@ const initialState: AppState = {
     isAcceptingOrders: true,
     closedMessage: 'Şu an sipariş almıyoruz. Yakında tekrar açılacağız.',
   },
+  myOrderNumbers: [],
 };
 
 // Merge with localStorage if exists
@@ -235,6 +237,7 @@ function reducer(state: AppState, action: Action): AppState {
         orderMode: 'alacarte',
         creditsRemaining: 0,
         orders: [action.payload, ...state.orders],
+        myOrderNumbers: [...(state.myOrderNumbers || []), action.payload.orderNumber],
       };
     case 'SET_LANG':
       return { ...state, lang: action.payload };
