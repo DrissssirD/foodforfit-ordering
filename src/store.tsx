@@ -3,7 +3,7 @@ import type { CartItem, Meal, SubscriptionPlan, Page, Order, ChatConversation } 
 import type { Lang } from './i18n';
 import { meals as initialMeals, subscriptionPlans as initialPlans } from './data';
 
-const STORAGE_KEY = 'foodforfit_state_v1';
+const STORAGE_KEY = 'foodforfit_state_v2';
 
 const DEFAULT_AI_PROMPT = `You are FIT Assistant, a friendly nutrition and meal planning assistant for Food For Fit — a premium healthy meal delivery service in Turkey.
 

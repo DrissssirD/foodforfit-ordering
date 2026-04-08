@@ -2,7 +2,7 @@ export interface Meal {
   id: string;
   name: string;
   description: string;
-  category: 'kahvalti' | 'ana' | 'kase' | 'smoothie';
+  category: 'kahvalti' | 'ana' | 'kase' | 'smoothie' | 'tatli';
   imageUrl: string;
   price: number;
   calories: number;
