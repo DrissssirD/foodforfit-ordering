@@ -1,6 +1,6 @@
 import { getMealGradient, getMealEmoji } from '../data';
 import { useState } from 'react';
-import { ArrowLeft, Package, UtensilsCrossed, ShoppingBag, Plus, Trash2, Edit3, Check, X, Eye, EyeOff, BarChart2, Bot, Settings } from 'lucide-react';
+import { ArrowLeft, Package, UtensilsCrossed, ShoppingBag, Plus, Trash2, Edit3, Check, X, Eye, EyeOff, BarChart2, Bot, Settings, ImagePlus } from 'lucide-react';
 import { useApp } from '../store';
 import { useT } from '../i18n';
 import type { Meal, SubscriptionPlan, Order } from '../types';
@@ -176,6 +176,9 @@ const emptyMeal = (): Meal => ({
 
 function MealForm({ meal, onSave, onCancel }: { meal: Meal; onSave: (m: Meal) => void; onCancel: () => void }) {
   const [form, setForm] = useState<Meal>({ ...meal });
+  const [imageError, setImageError] = useState('');
+  const [imageLoading, setImageLoading] = useState(false);
+  const [dragActive, setDragActive] = useState(false);
   const f = (k: keyof Meal, v: any) => setForm(p => ({ ...p, [k]: v }));
 
   const iStyle = {
@@ -188,6 +191,26 @@ function MealForm({ meal, onSave, onCancel }: { meal: Meal; onSave: (m: Meal) =>
     textTransform: 'uppercase' as const, letterSpacing: '0.05em', display: 'block', marginBottom: '5px',
   };
 
+  const handleImageFile = (file: File) => {
+    setImageError('');
+    if (file.size > 2 * 1024 * 1024) {
+      setImageError('Dosya 2MB\'dan küçük olmalıdır');
+      return;
+    }
+    if (!file.type.startsWith('image/')) {
+      setImageError('Sadece görsel dosyası yükleyebilirsiniz');
+      return;
+    }
+    setImageLoading(true);
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string;
+      f('imageUrl', base64);
+      setImageLoading(false);
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="p-5 rounded-2xl mb-4" style={{ background: '#F5ECD7', border: '1.5px solid #C8A97A' }}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -198,6 +221,49 @@ function MealForm({ meal, onSave, onCancel }: { meal: Meal; onSave: (m: Meal) =>
         <div className="sm:col-span-2">
           <label style={lStyle}>Açıklama</label>
           <textarea value={form.description} onChange={e => f('description', e.target.value)} rows={2} style={{ ...iStyle, resize: 'none' }} placeholder="Kısa açıklama" />
+        </div>
+        <div className="sm:col-span-2">
+          <label style={lStyle}>Öğün Görseli</label>
+          {form.imageUrl ? (
+            <div>
+              <img src={form.imageUrl} alt="Preview" style={{ maxHeight: '160px', borderRadius: '12px', objectFit: 'cover', width: '100%' }} />
+              <div className="flex gap-2 mt-3">
+                <button
+                  type="button"
+                  onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = (e) => { const file = (e.target as HTMLInputElement).files?.[0]; if (file) handleImageFile(file); }; input.click(); }}
+                  className="px-3 py-1.5 text-xs font-medium rounded-full cursor-pointer"
+                  style={{ background: '#E5DDD0', color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}
+                >
+                  Görseli Değiştir
+                </button>
+                <button
+                  type="button"
+                  onClick={() => f('imageUrl', '')}
+                  className="px-3 py-1.5 text-xs font-medium cursor-pointer"
+                  style={{ color: '#C0392B', fontFamily: "'Montserrat', sans-serif" }}
+                >
+                  Görseli Kaldır
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div
+                onDragOver={(e) => { e.preventDefault(); setDragActive(true); }}
+                onDragLeave={() => setDragActive(false)}
+                onDrop={(e) => { e.preventDefault(); setDragActive(false); const file = e.dataTransfer.files?.[0]; if (file) handleImageFile(file); }}
+                onClick={() => { const input = document.createElement('input'); input.type = 'file'; input.accept = 'image/*'; input.onchange = (e) => { const file = (e.target as HTMLInputElement).files?.[0]; if (file) handleImageFile(file); }; input.click(); }}
+                className="border-2 border-dashed rounded-xl p-8 text-center cursor-pointer"
+                style={{ borderColor: dragActive ? '#1E3F30' : '#E5DDD0', transition: 'all 0.3s ease' }}
+              >
+                <ImagePlus size={32} style={{ margin: '0 auto 12px', color: '#8A8A8A' }} />
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 600, color: '#4A4A4A', marginBottom: '4px' }}>Görsel yüklemek için tıklayın veya sürükleyin</p>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A' }}>PNG, JPG, WEBP — Maks 2MB</p>
+              </div>
+              {imageLoading && <p style={{ marginTop: '8px', fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#8A8A8A' }}>Yükleniyor...</p>}
+              {imageError && <p style={{ marginTop: '8px', fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#C0392B' }}>{imageError}</p>}
+            </div>
+          )}
         </div>
         <div>
           <label style={lStyle}>Kategori</label>
@@ -301,9 +367,15 @@ function MenuTab() {
                 className="flex items-center gap-4 p-4 rounded-xl"
                 style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0', opacity: meal.available ? 1 : 0.6 }}
               >
-                <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+                <div className="w-14 h-14 rounded-xl flex-shrink-0 overflow-hidden"
                   style={{ background: getMealGradient(meal) }}>
-                  {getMealEmoji(meal)}
+                  {meal.imageUrl ? (
+                    <img src={meal.imageUrl} alt={meal.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-2xl">
+                      {getMealEmoji(meal)}
+                    </div>
+                  )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 600, color: '#1A1A1A', fontSize: '14px' }}>
@@ -1100,7 +1172,7 @@ function SettingsTab() {
               </label>
               <input
                 type="text"
-                value={tempSettings[key as keyof typeof tempSettings]}
+                value={String(tempSettings[key as keyof typeof tempSettings] || '')}
                 onChange={e => handleSettingChange(key as keyof typeof tempSettings, e.target.value)}
                 style={{
                   width: '100%',
@@ -1143,7 +1215,7 @@ function SettingsTab() {
               </label>
               <input
                 type="number"
-                value={tempSettings[key as keyof typeof tempSettings]}
+                value={Number(tempSettings[key as keyof typeof tempSettings] || 0)}
                 onChange={e => handleSettingChange(key as keyof typeof tempSettings, +e.target.value)}
                 min={0}
                 style={{

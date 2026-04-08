@@ -88,9 +88,13 @@ export default function CartDrawer() {
               {state.cart.map(item => (
                 <div key={item.meal.id} className="flex items-center gap-3 p-3.5 rounded-2xl"
                   style={{ background: '#FFFFFF', border: '1px solid #E5DDD0' }}>
-                  <div className="w-14 h-14 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+                  <div className="w-14 h-14 rounded-xl flex-shrink-0 overflow-hidden flex items-center justify-center text-2xl"
                     style={{ background: getMealGradient(item.meal) }}>
-                    {getMealEmoji(item.meal)}
+                    {item.meal.imageUrl ? (
+                      <img src={item.meal.imageUrl} alt={item.meal.name} className="w-full h-full object-cover rounded-xl" />
+                    ) : (
+                      getMealEmoji(item.meal)
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <h4 className="text-sm font-semibold truncate" style={{ fontFamily: "'Montserrat', sans-serif", color: '#1A1A1A' }}>{item.meal.name}</h4>
