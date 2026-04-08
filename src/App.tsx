@@ -9,13 +9,20 @@ import SuccessPage from './components/SuccessPage';
 import Footer from './components/Footer';
 import FitAssistant from './components/FitAssistant';
 import AdminDashboard from './components/AdminDashboard';
+import OrderTrackingPage from './components/OrderTrackingPage';
 
 function AppContent() {
   const { state, dispatch } = useApp();
 
-  // Route to admin panel if URL is /admin
+  // Route to tracking or admin panel based on URL
   useEffect(() => {
-    if (window.location.pathname === '/admin') {
+    if (window.location.pathname.startsWith('/track/')) {
+      const orderNum = window.location.pathname.split('/track/')[1]?.toUpperCase();
+      if (orderNum) {
+        dispatch({ type: 'SET_TRACKING_ORDER', payload: orderNum });
+        dispatch({ type: 'SET_PAGE', payload: 'track' });
+      }
+    } else if (window.location.pathname === '/admin') {
       dispatch({ type: 'SET_PAGE', payload: 'admin' });
     }
   }, []);
@@ -24,6 +31,10 @@ function AppContent() {
 
   if (state.currentPage === 'admin') {
     return <AdminDashboard />;
+  }
+
+  if (state.currentPage === 'track') {
+    return <OrderTrackingPage />;
   }
 
   const renderPage = () => {

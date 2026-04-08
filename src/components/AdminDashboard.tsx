@@ -1,15 +1,14 @@
 import { getMealGradient, getMealEmoji } from '../data';
 import { useState } from 'react';
-import { ArrowLeft, Package, UtensilsCrossed, ShoppingBag, Plus, Trash2, Edit3, Check, X, Eye, EyeOff } from 'lucide-react';
+import { ArrowLeft, Package, UtensilsCrossed, ShoppingBag, Plus, Trash2, Edit3, Check, X, Eye, EyeOff, BarChart2, Bot, Settings } from 'lucide-react';
 import { useApp } from '../store';
 import { useT } from '../i18n';
 import type { Meal, SubscriptionPlan, Order } from '../types';
 
-const ADMIN_PASSWORD = 'admin123';
 const green = '#1E3F30';
 const gold = '#C8A97A';
 
-type AdminTab = 'orders' | 'menu' | 'packages';
+type AdminTab = 'orders' | 'menu' | 'packages' | 'analytics' | 'ai' | 'settings';
 
 const STATUS_COLORS: Record<Order['status'], { bg: string; color: string; label: string }> = {
   pending:   { bg: '#FEF9C3', color: '#854D0E', label: 'Bekliyor' },
@@ -22,13 +21,13 @@ const STATUS_COLORS: Record<Order['status'], { bg: string; color: string; label:
 // ─────────────────────────────────────────
 // LOGIN SCREEN
 // ─────────────────────────────────────────
-function AdminLogin({ onLogin }: { onLogin: () => void }) {
+function AdminLogin({ onLogin, adminPassword }: { onLogin: () => void; adminPassword: string }) {
   const [pass, setPass] = useState('');
   const [error, setError] = useState(false);
   const [show, setShow] = useState(false);
 
   const attempt = () => {
-    if (pass === ADMIN_PASSWORD) onLogin();
+    if (pass === adminPassword) onLogin();
     else setError(true);
   };
 
@@ -528,6 +527,771 @@ function PackagesTab() {
 }
 
 // ─────────────────────────────────────────
+// ANALYTICS TAB
+// ─────────────────────────────────────────
+function AnalyticsTab() {
+  const { state } = useApp();
+
+  // Calculate metrics
+  const totalRevenue = state.orders
+    .filter(o => o.status !== 'cancelled')
+    .reduce((sum, o) => sum + o.total, 0);
+
+  const weekAgoTime = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  const weekRevenue = state.orders
+    .filter(o => o.status !== 'cancelled' && new Date(o.createdAt).getTime() > weekAgoTime)
+    .reduce((sum, o) => sum + o.total, 0);
+
+  const deliveredCount = state.orders.filter(o => o.status === 'delivered').length;
+  const pendingCount = state.orders.filter(o => o.status === 'pending').length;
+
+  // Top meals calculation
+  const mealCounts: Record<string, number> = {};
+  state.orders.forEach(order => {
+    order.items.forEach(item => {
+      mealCounts[item.meal.id] = (mealCounts[item.meal.id] || 0) + item.quantity;
+    });
+  });
+
+  const topMeals = Object.entries(mealCounts)
+    .map(([mealId, count]) => {
+      const meal = state.adminMeals.find(m => m.id === mealId);
+      return { name: meal?.name || 'Unknown', count };
+    })
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5);
+
+  const maxMealCount = Math.max(...topMeals.map(m => m.count), 1);
+
+  // Subscription plan distribution
+  const planCounts: Record<string, number> = {};
+  let singleOrderCount = 0;
+
+  state.orders.forEach(order => {
+    if (order.subscriptionPlan) {
+      planCounts[order.subscriptionPlan.name] = (planCounts[order.subscriptionPlan.name] || 0) + 1;
+    } else {
+      singleOrderCount++;
+    }
+  });
+
+  const totalOrders = state.orders.length;
+
+  // Stat card component
+  const StatCard = ({ title, value, subtext, icon: Icon, accentColor }: any) => (
+    <div className="p-5 rounded-xl relative" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+      <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', marginBottom: '12px' }}>
+        {title}
+      </p>
+      <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '1.8rem', fontWeight: 700, color: '#1A1A1A', marginBottom: '2px' }}>
+        {value}
+      </p>
+      {subtext && (
+        <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#D4A574' }}>
+          {subtext}
+        </p>
+      )}
+      {Icon && (
+        <div
+          className="absolute top-5 right-5 w-10 h-10 rounded-lg flex items-center justify-center"
+          style={{ background: accentColor ? `${accentColor}20` : '#F5ECD7' }}
+        >
+          <Icon size={18} style={{ color: accentColor || gold }} />
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div>
+      <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.2rem', color: '#1A1A1A', marginBottom: '20px' }}>
+        Analitik Özeti
+      </h2>
+
+      {/* ROW 1 - 4 Stat Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <StatCard title="Toplam Ciro" value={`₺${totalRevenue.toLocaleString('tr-TR')}`} icon={() => null} accentColor={green} />
+        <div>
+          <StatCard
+            title="Toplam Sipariş"
+            value={totalOrders}
+            subtext={pendingCount > 0 ? `${pendingCount} bekliyor` : undefined}
+          />
+        </div>
+        <StatCard title="Bu Hafta Ciro" value={`₺${weekRevenue.toLocaleString('tr-TR')}`} />
+        <StatCard title="Teslim Edildi" value={deliveredCount} accentColor={green} />
+      </div>
+
+      {/* ROW 2 - Two panels */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Top Meals */}
+        <div className="p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+          <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
+            En Çok Sipariş Edilen Öğünler
+          </h3>
+          {topMeals.length === 0 ? (
+            <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '14px', color: '#8A8A8A', textAlign: 'center', padding: '20px 0' }}>
+              Henüz sipariş verisi yok
+            </p>
+          ) : (
+            <div className="space-y-3">
+              {topMeals.map(meal => (
+                <div key={meal.name} className="flex items-center gap-3">
+                  <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A', minWidth: '100px' }}>
+                    {meal.name.substring(0, 20)}
+                  </span>
+                  <div
+                    className="flex-1 h-6 rounded-full overflow-hidden"
+                    style={{ background: '#E5DDD0' }}
+                  >
+                    <div
+                      className="h-full rounded-full"
+                      style={{ width: `${(meal.count / maxMealCount) * 100}%`, background: green }}
+                    />
+                  </div>
+                  <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', fontWeight: 600, color: '#1A1A1A', minWidth: '30px', textAlign: 'right' }}>
+                    {meal.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Plan Distribution */}
+        <div className="p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+          <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
+            Paket Dağılımı
+          </h3>
+          <div className="space-y-3">
+            {singleOrderCount > 0 && (
+              <div className="flex items-center justify-between mb-3">
+                <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
+                  Tekli Sipariş
+                </span>
+                <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', fontWeight: 600, color: '#1A1A1A' }}>
+                  {singleOrderCount} ({totalOrders > 0 ? Math.round((singleOrderCount / totalOrders) * 100) : 0}%)
+                </span>
+              </div>
+            )}
+            {Object.entries(planCounts).map(([planName, count]) => (
+              <div key={planName} className="flex items-center justify-between">
+                <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
+                  {planName}
+                </span>
+                <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', fontWeight: 600, color: '#1A1A1A' }}>
+                  {count} ({totalOrders > 0 ? Math.round((count / totalOrders) * 100) : 0}%)
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* ROW 3 - Recent Orders */}
+      <div className="p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+        <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
+          Son Siparişler
+        </h3>
+        {state.orders.length === 0 ? (
+          <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '14px', color: '#8A8A8A', textAlign: 'center', padding: '20px 0' }}>
+            Sipariş yok
+          </p>
+        ) : (
+          <div className="space-y-0 divide-y" style={{ borderColor: '#E5DDD0' }}>
+            {state.orders.slice(0, 5).map(order => {
+              const sc = STATUS_COLORS[order.status];
+              return (
+                <div key={order.id} className="py-3 first:pt-0 last:pb-0">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                    <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, color: '#1A1A1A' }}>
+                      {order.orderNumber}
+                    </span>
+                    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
+                      {order.customerName}
+                    </span>
+                    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#8A8A8A' }}>
+                      {order.subscriptionPlan ? order.subscriptionPlan.name : 'Tekli'}
+                    </span>
+                    <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 600, color: '#1A1A1A' }}>
+                      ₺{order.total.toLocaleString('tr-TR')}
+                    </span>
+                    <span
+                      className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                      style={{ background: sc.bg, color: sc.color, fontFamily: "'Montserrat', sans-serif" }}
+                    >
+                      {sc.label}
+                    </span>
+                    <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11px', color: '#8A8A8A' }}>
+                      {new Date(order.createdAt).toLocaleDateString('tr-TR')}
+                    </span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────
+// AI ASSISTANT TAB
+// ─────────────────────────────────────────
+function AIAssistantTab() {
+  const { state, dispatch } = useApp();
+  const [newButtonInput, setNewButtonInput] = useState('');
+  const [saveMessage, setSaveMessage] = useState('');
+  const [tempPrompt, setTempPrompt] = useState(state.aiSystemPrompt);
+  const [tempButtons, setTempButtons] = useState([...state.aiQuickButtons]);
+
+  const handleToggleAI = () => {
+    dispatch({ type: 'SET_AI_ASSISTANT_ENABLED', payload: !state.aiAssistantEnabled });
+  };
+
+  const handleSavePrompt = () => {
+    dispatch({ type: 'SET_AI_SYSTEM_PROMPT', payload: tempPrompt });
+    setSaveMessage('Kaydedildi ✓');
+    setTimeout(() => setSaveMessage(''), 2000);
+  };
+
+  const handleAddButton = () => {
+    if (newButtonInput.trim() && tempButtons.length < 5) {
+      setTempButtons([...tempButtons, newButtonInput]);
+      setNewButtonInput('');
+    }
+  };
+
+  const handleDeleteButton = (index: number) => {
+    setTempButtons(tempButtons.filter((_, i) => i !== index));
+  };
+
+  const handleSaveButtons = () => {
+    dispatch({ type: 'SET_AI_QUICK_BUTTONS', payload: tempButtons });
+    setSaveMessage('Kaydedildi ✓');
+    setTimeout(() => setSaveMessage(''), 2000);
+  };
+
+  return (
+    <div>
+      <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.2rem', color: '#1A1A1A', marginBottom: '20px' }}>
+        AI Asistan Yönetimi
+      </h2>
+
+      {/* Section 1 - Status Toggle */}
+      <div className="mb-6 p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+        <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
+          Asistan Durumu
+        </h3>
+        <button
+          onClick={handleToggleAI}
+          className="flex items-center gap-3 p-4 rounded-xl w-full cursor-pointer"
+          style={{
+            background: state.aiAssistantEnabled ? '#E8F0E8' : '#F5F5F5',
+            border: `1.5px solid ${state.aiAssistantEnabled ? green : '#E5DDD0'}`,
+          }}
+        >
+          <div
+            className="w-12 h-6 rounded-full flex items-center transition-all relative"
+            style={{
+              background: state.aiAssistantEnabled ? green : '#CCC',
+            }}
+          >
+            <div
+              className="w-5 h-5 rounded-full"
+              style={{
+                background: '#fff',
+                marginLeft: state.aiAssistantEnabled ? '20px' : '2px',
+                transition: 'margin 0.3s',
+              }}
+            />
+          </div>
+          <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 600, color: state.aiAssistantEnabled ? green : '#8A8A8A' }}>
+            {state.aiAssistantEnabled ? 'Asistan Aktif' : 'Asistan Kapalı'}
+          </span>
+        </button>
+      </div>
+
+      {/* Section 2 - System Prompt */}
+      <div className="mb-6 p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+        <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '4px' }}>
+          Sistem Mesajı
+        </h3>
+        <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#8A8A8A', marginBottom: '12px' }}>
+          Asistanın nasıl davranacağını ve ne bildiğini buradan düzenleyebilirsiniz.
+        </p>
+        <textarea
+          value={tempPrompt}
+          onChange={e => setTempPrompt(e.target.value)}
+          rows={8}
+          style={{
+            width: '100%',
+            padding: '12px 16px',
+            borderRadius: '12px',
+            border: '1.5px solid #E5DDD0',
+            background: '#FDF6F2',
+            fontFamily: "'Montserrat', sans-serif",
+            fontSize: '13px',
+            color: '#1A1A1A',
+            resize: 'none',
+            outline: 'none',
+          }}
+        />
+        <div className="flex items-center justify-between mt-4">
+          <button
+            onClick={handleSavePrompt}
+            className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer"
+            style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
+          >
+            Kaydet
+          </button>
+          {saveMessage && (
+            <span style={{ color: green, fontFamily: "'Montserrat', sans-serif", fontSize: '13px', fontWeight: 600 }}>
+              {saveMessage}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Section 3 - Quick Buttons */}
+      <div className="mb-6 p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+        <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '4px' }}>
+          Hızlı Yanıtlar
+        </h3>
+        <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#8A8A8A', marginBottom: '12px' }}>
+          Müşterilerin chat'te göreceği hızlı soru butonları
+        </p>
+        <div className="space-y-2 mb-4">
+          {tempButtons.map((btn, i) => (
+            <div key={i} className="flex gap-2">
+              <input
+                type="text"
+                value={btn}
+                readOnly
+                style={{
+                  flex: 1,
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  border: '1.5px solid #E5DDD0',
+                  background: '#FDF6F2',
+                  fontFamily: "'Montserrat', sans-serif",
+                  fontSize: '13px',
+                  color: '#1A1A1A',
+                }}
+              />
+              <button
+                onClick={() => handleDeleteButton(i)}
+                className="w-10 h-10 rounded-lg flex items-center justify-center cursor-pointer"
+                style={{ background: '#FEE2E2', color: '#C0392B' }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+          ))}
+        </div>
+        {tempButtons.length < 5 && (
+          <div className="flex gap-2 mb-4">
+            <input
+              type="text"
+              placeholder="Yeni buton metni"
+              value={newButtonInput}
+              onChange={e => setNewButtonInput(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && handleAddButton()}
+              style={{
+                flex: 1,
+                padding: '10px 14px',
+                borderRadius: '12px',
+                border: '1.5px solid #E5DDD0',
+                background: '#FDF6F2',
+                fontFamily: "'Montserrat', sans-serif",
+                fontSize: '13px',
+                color: '#1A1A1A',
+                outline: 'none',
+              }}
+            />
+            <button
+              onClick={handleAddButton}
+              className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer"
+              style={{ background: '#E8F0E8', color: green, fontFamily: "'Montserrat', sans-serif" }}
+            >
+              + Ekle
+            </button>
+          </div>
+        )}
+        <button
+          onClick={handleSaveButtons}
+          className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer"
+          style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
+        >
+          Kaydet
+        </button>
+      </div>
+
+      {/* Section 4 - API Status */}
+      <div className="p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+        <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
+          API Bağlantısı
+        </h3>
+        <div className="flex items-start gap-3 mb-4">
+          <div className="w-2.5 h-2.5 rounded-full mt-1" style={{ background: '#FF9800' }} />
+          <div>
+            <p style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 600, color: '#1A1A1A', marginBottom: '2px' }}>
+              Anthropic API
+            </p>
+            <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#8A8A8A' }}>
+              API anahtarı bekleniyor
+            </p>
+            <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', marginTop: '8px' }}>
+              Ödeme onaylandıktan sonra API anahtarı eklenecek ve asistan aktif hale gelecektir.
+            </p>
+          </div>
+        </div>
+        <div
+          className="p-3 rounded-xl mb-4"
+          style={{
+            background: '#FDF6F2',
+            border: '1px solid #E5DDD0',
+            fontFamily: "'Montserrat', sans-serif",
+            fontSize: '12px',
+            color: '#4A4A4A',
+            overflow: 'auto',
+          }}
+        >
+          VITE_ANTHROPIC_API_KEY=••••••••
+        </div>
+        <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A' }}>
+          Bu anahtarı Vercel dashboard → Environment Variables bölümünden ekleyin.
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────
+// SETTINGS TAB
+// ─────────────────────────────────────────
+function SettingsTab() {
+  const { state, dispatch } = useApp();
+  const [tempSettings, setTempSettings] = useState(state.businessSettings);
+  const [currentPass, setCurrentPass] = useState('');
+  const [newPass, setNewPass] = useState('');
+  const [confirmPass, setConfirmPass] = useState('');
+  const [passError, setPassError] = useState('');
+  const [passSuccess, setPassSuccess] = useState('');
+  const [saveMessage, setSaveMessage] = useState('');
+  const [showCurrentPass, setShowCurrentPass] = useState(false);
+  const [showNewPass, setShowNewPass] = useState(false);
+  const [showConfirmPass, setShowConfirmPass] = useState(false);
+
+  const handleSettingChange = (key: keyof typeof tempSettings, value: any) => {
+    setTempSettings({ ...tempSettings, [key]: value });
+  };
+
+  const handleSaveSettings = () => {
+    dispatch({ type: 'UPDATE_BUSINESS_SETTINGS', payload: tempSettings });
+    setSaveMessage('Kaydedildi ✓');
+    setTimeout(() => setSaveMessage(''), 2000);
+  };
+
+  const handleChangePassword = () => {
+    setPassError('');
+    setPassSuccess('');
+
+    if (currentPass !== state.adminPassword) {
+      setPassError('Mevcut şifre hatalı');
+      return;
+    }
+    if (newPass.length < 6) {
+      setPassError('Yeni şifre en az 6 karakter olmalı');
+      return;
+    }
+    if (newPass !== confirmPass) {
+      setPassError('Yeni şifreler eşleşmiyor');
+      return;
+    }
+
+    dispatch({ type: 'CHANGE_ADMIN_PASSWORD', payload: newPass });
+    setCurrentPass('');
+    setNewPass('');
+    setConfirmPass('');
+    setPassSuccess('Şifre değiştirildi ✓');
+    setTimeout(() => setPassSuccess(''), 3000);
+  };
+
+  return (
+    <div>
+      <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.2rem', color: '#1A1A1A', marginBottom: '20px' }}>
+        İşletme Ayarları
+      </h2>
+
+      {/* Section 1 - Order Status */}
+      <div className="mb-6 p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+        <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
+          Sipariş Durumu
+        </h3>
+        <button
+          onClick={() => handleSettingChange('isAcceptingOrders', !tempSettings.isAcceptingOrders)}
+          className="flex items-center gap-3 p-4 rounded-xl w-full mb-4 cursor-pointer"
+          style={{
+            background: tempSettings.isAcceptingOrders ? '#E8F0E8' : '#FEE2E2',
+            border: `1.5px solid ${tempSettings.isAcceptingOrders ? green : '#C0392B'}`,
+          }}
+        >
+          <div
+            className="w-12 h-6 rounded-full flex items-center transition-all relative"
+            style={{
+              background: tempSettings.isAcceptingOrders ? green : '#CCC',
+            }}
+          >
+            <div
+              className="w-5 h-5 rounded-full"
+              style={{
+                background: '#fff',
+                marginLeft: tempSettings.isAcceptingOrders ? '20px' : '2px',
+                transition: 'margin 0.3s',
+              }}
+            />
+          </div>
+          <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 600, color: tempSettings.isAcceptingOrders ? green : '#C0392B' }}>
+            {tempSettings.isAcceptingOrders ? 'Sipariş Alınıyor' : 'Siparişe Kapalı'}
+          </span>
+        </button>
+        <div>
+          <label style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', display: 'block', marginBottom: '8px' }}>
+            Kapalı Mesajı
+          </label>
+          <textarea
+            value={tempSettings.closedMessage}
+            onChange={e => handleSettingChange('closedMessage', e.target.value)}
+            rows={2}
+            style={{
+              width: '100%',
+              padding: '10px 14px',
+              borderRadius: '12px',
+              border: '1.5px solid #E5DDD0',
+              background: '#FDF6F2',
+              fontFamily: "'Montserrat', sans-serif",
+              fontSize: '13px',
+              color: '#1A1A1A',
+              resize: 'none',
+              outline: 'none',
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Section 2 - Business Info */}
+      <div className="mb-6 p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+        <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
+          İşletme Bilgileri
+        </h3>
+        <div className="space-y-4">
+          {[
+            { key: 'businessName', label: 'İşletme Adı' },
+            { key: 'phone', label: 'Telefon' },
+            { key: 'email', label: 'Email' },
+            { key: 'deliveryAreas', label: 'Teslimat Bölgeleri' },
+            { key: 'deliveryHours', label: 'Teslimat Saatleri' },
+          ].map(({ key, label }) => (
+            <div key={key}>
+              <label style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', display: 'block', marginBottom: '6px' }}>
+                {label}
+              </label>
+              <input
+                type="text"
+                value={tempSettings[key as keyof typeof tempSettings]}
+                onChange={e => handleSettingChange(key as keyof typeof tempSettings, e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  border: '1.5px solid #E5DDD0',
+                  background: '#FDF6F2',
+                  fontFamily: "'Montserrat', sans-serif",
+                  fontSize: '13px',
+                  color: '#1A1A1A',
+                  outline: 'none',
+                }}
+              />
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={handleSaveSettings}
+          className="mt-4 px-6 py-3 rounded-full text-sm font-semibold cursor-pointer"
+          style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
+        >
+          Kaydet
+        </button>
+      </div>
+
+      {/* Section 3 - Delivery Settings */}
+      <div className="mb-6 p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+        <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
+          Teslimat & Ödeme Ayarları
+        </h3>
+        <div className="space-y-4">
+          {[
+            { key: 'minOrderAmount', label: 'Min. Sipariş Tutarı (₺)' },
+            { key: 'freeDeliveryThreshold', label: 'Ücretsiz Teslimat Sınırı (₺)' },
+            { key: 'deliveryFee', label: 'Teslimat Ücreti (₺)' },
+          ].map(({ key, label }) => (
+            <div key={key}>
+              <label style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', display: 'block', marginBottom: '6px' }}>
+                {label}
+              </label>
+              <input
+                type="number"
+                value={tempSettings[key as keyof typeof tempSettings]}
+                onChange={e => handleSettingChange(key as keyof typeof tempSettings, +e.target.value)}
+                min={0}
+                style={{
+                  width: '100%',
+                  padding: '10px 14px',
+                  borderRadius: '12px',
+                  border: '1.5px solid #E5DDD0',
+                  background: '#FDF6F2',
+                  fontFamily: "'Montserrat', sans-serif",
+                  fontSize: '13px',
+                  color: '#1A1A1A',
+                  outline: 'none',
+                }}
+              />
+            </div>
+          ))}
+        </div>
+        <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', marginTop: '12px' }}>
+          Bu değerler sepet hesaplamalarına otomatik olarak yansır.
+        </p>
+        <button
+          onClick={handleSaveSettings}
+          className="mt-4 px-6 py-3 rounded-full text-sm font-semibold cursor-pointer"
+          style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
+        >
+          Kaydet
+        </button>
+        {saveMessage && (
+          <p style={{ color: green, fontFamily: "'Montserrat', sans-serif", fontSize: '13px', fontWeight: 600, marginTop: '8px' }}>
+            {saveMessage}
+          </p>
+        )}
+      </div>
+
+      {/* Section 4 - Admin Password */}
+      <div className="p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+        <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
+          Admin Şifresi Değiştir
+        </h3>
+        <div className="space-y-4">
+          <div className="relative">
+            <label style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', display: 'block', marginBottom: '6px' }}>
+              Mevcut Şifre
+            </label>
+            <input
+              type={showCurrentPass ? 'text' : 'password'}
+              value={currentPass}
+              onChange={e => { setCurrentPass(e.target.value); setPassError(''); }}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                border: `1.5px solid ${passError ? '#C0392B' : '#E5DDD0'}`,
+                background: '#FDF6F2',
+                fontFamily: "'Montserrat', sans-serif",
+                fontSize: '13px',
+                color: '#1A1A1A',
+                outline: 'none',
+              }}
+            />
+            <button
+              onClick={() => setShowCurrentPass(!showCurrentPass)}
+              className="absolute right-3 top-1/3 cursor-pointer"
+              style={{ color: '#8A8A8A' }}
+            >
+              {showCurrentPass ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+          <div className="relative">
+            <label style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', display: 'block', marginBottom: '6px' }}>
+              Yeni Şifre
+            </label>
+            <input
+              type={showNewPass ? 'text' : 'password'}
+              value={newPass}
+              onChange={e => { setNewPass(e.target.value); setPassError(''); }}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                border: `1.5px solid ${passError ? '#C0392B' : '#E5DDD0'}`,
+                background: '#FDF6F2',
+                fontFamily: "'Montserrat', sans-serif",
+                fontSize: '13px',
+                color: '#1A1A1A',
+                outline: 'none',
+              }}
+            />
+            <button
+              onClick={() => setShowNewPass(!showNewPass)}
+              className="absolute right-3 top-1/3 cursor-pointer"
+              style={{ color: '#8A8A8A' }}
+            >
+              {showNewPass ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+          <div className="relative">
+            <label style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', display: 'block', marginBottom: '6px' }}>
+              Şifreyi Onayla
+            </label>
+            <input
+              type={showConfirmPass ? 'text' : 'password'}
+              value={confirmPass}
+              onChange={e => { setConfirmPass(e.target.value); setPassError(''); }}
+              style={{
+                width: '100%',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                border: `1.5px solid ${passError ? '#C0392B' : '#E5DDD0'}`,
+                background: '#FDF6F2',
+                fontFamily: "'Montserrat', sans-serif",
+                fontSize: '13px',
+                color: '#1A1A1A',
+                outline: 'none',
+              }}
+            />
+            <button
+              onClick={() => setShowConfirmPass(!showConfirmPass)}
+              className="absolute right-3 top-1/3 cursor-pointer"
+              style={{ color: '#8A8A8A' }}
+            >
+              {showConfirmPass ? <EyeOff size={14} /> : <Eye size={14} />}
+            </button>
+          </div>
+        </div>
+        {passError && (
+          <p style={{ color: '#C0392B', fontFamily: "'Montserrat', sans-serif", fontSize: '12px', marginTop: '8px' }}>
+            {passError}
+          </p>
+        )}
+        {passSuccess && (
+          <p style={{ color: green, fontFamily: "'Montserrat', sans-serif", fontSize: '12px', fontWeight: 600, marginTop: '8px' }}>
+            {passSuccess}
+          </p>
+        )}
+        <button
+          onClick={handleChangePassword}
+          className="mt-4 px-6 py-3 rounded-full text-sm font-semibold cursor-pointer"
+          style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
+        >
+          Şifreyi Güncelle
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────
 // MAIN DASHBOARD
 // ─────────────────────────────────────────
 export default function AdminDashboard() {
@@ -549,12 +1313,15 @@ export default function AdminDashboard() {
     dispatch({ type: 'SET_PAGE', payload: 'packages' });
   };
 
-  if (!loggedIn) return <AdminLogin onLogin={handleLogin} />;
+  if (!loggedIn) return <AdminLogin onLogin={handleLogin} adminPassword={state.adminPassword} />;
 
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
     { id: 'orders',   label: 'Siparişler',      icon: <ShoppingBag size={16} /> },
     { id: 'menu',     label: 'Menü Yönetimi',   icon: <UtensilsCrossed size={16} /> },
     { id: 'packages', label: 'Paket Yönetimi',  icon: <Package size={16} /> },
+    { id: 'analytics', label: 'Analitik',       icon: <BarChart2 size={16} /> },
+    { id: 'ai',       label: 'AI Asistan',      icon: <Bot size={16} /> },
+    { id: 'settings', label: 'Ayarlar',         icon: <Settings size={16} /> },
   ];
 
   const pendingCount = state.orders.filter(o => o.status === 'pending').length;
@@ -637,9 +1404,12 @@ export default function AdminDashboard() {
           {/* Main content card */}
           <div className="flex-1 min-w-0">
             <div className="p-5 sm:p-6 rounded-3xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
-              {tab === 'orders'   && <OrdersTab />}
-              {tab === 'menu'     && <MenuTab />}
-              {tab === 'packages' && <PackagesTab />}
+              {tab === 'orders'    && <OrdersTab />}
+              {tab === 'menu'      && <MenuTab />}
+              {tab === 'packages'  && <PackagesTab />}
+              {tab === 'analytics' && <AnalyticsTab />}
+              {tab === 'ai'        && <AIAssistantTab />}
+              {tab === 'settings'  && <SettingsTab />}
             </div>
           </div>
         </div>

@@ -59,7 +59,7 @@ export interface CartState {
   creditsRemaining: number;
 }
 
-export type Page = 'home' | 'menu' | 'packages' | 'about' | 'success' | 'admin';
+export type Page = 'home' | 'menu' | 'packages' | 'about' | 'success' | 'admin' | 'track';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';

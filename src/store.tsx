@@ -32,7 +32,22 @@ interface AppState {
   adminPassword: string;
   aiEnabled: boolean;
   aiSystemPrompt: string;
+  aiQuickButtons: string[];
   chatHistory: ChatConversation[];
+  trackingOrderNumber: string | null;
+  aiAssistantEnabled: boolean;
+  businessSettings: {
+    businessName: string;
+    phone: string;
+    email: string;
+    deliveryAreas: string;
+    deliveryHours: string;
+    minOrderAmount: number;
+    freeDeliveryThreshold: number;
+    deliveryFee: number;
+    isAcceptingOrders: boolean;
+    closedMessage: string;
+  };
 }
 
 type Action =
@@ -60,6 +75,10 @@ type Action =
   | { type: 'CHANGE_ADMIN_PASSWORD'; payload: string }
   | { type: 'SET_AI_ENABLED'; payload: boolean }
   | { type: 'SET_AI_SYSTEM_PROMPT'; payload: string }
+  | { type: 'SET_AI_QUICK_BUTTONS'; payload: string[] }
+  | { type: 'SET_TRACKING_ORDER'; payload: string }
+  | { type: 'SET_AI_ASSISTANT_ENABLED'; payload: boolean }
+  | { type: 'UPDATE_BUSINESS_SETTINGS'; payload: Partial<AppState['businessSettings']> }
   | { type: 'ADD_CHAT_CONVERSATION'; payload: ChatConversation };
 
 // Seed orders for demo
@@ -105,7 +124,22 @@ const initialState: AppState = {
   adminPassword: 'admin123',
   aiEnabled: true,
   aiSystemPrompt: DEFAULT_AI_PROMPT,
+  aiQuickButtons: ['📦 Paket öner', '🔥 Kalori sorusu', '🚚 Teslimat bilgisi'],
   chatHistory: [],
+  trackingOrderNumber: null,
+  aiAssistantEnabled: true,
+  businessSettings: {
+    businessName: 'FoodForFit',
+    phone: '+90 212 000 00 00',
+    email: 'info@foodforfitofficial.com',
+    deliveryAreas: 'İstanbul (Avrupa Yakası)',
+    deliveryHours: '09:00 - 21:00',
+    minOrderAmount: 0,
+    freeDeliveryThreshold: 800,
+    deliveryFee: 50,
+    isAcceptingOrders: true,
+    closedMessage: 'Şu an sipariş almıyoruz. Yakında tekrar açılacağız.',
+  },
 };
 
 function reducer(state: AppState, action: Action): AppState {
@@ -203,6 +237,14 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, aiEnabled: action.payload };
     case 'SET_AI_SYSTEM_PROMPT':
       return { ...state, aiSystemPrompt: action.payload };
+    case 'SET_AI_QUICK_BUTTONS':
+      return { ...state, aiQuickButtons: action.payload };
+    case 'SET_TRACKING_ORDER':
+      return { ...state, trackingOrderNumber: action.payload };
+    case 'SET_AI_ASSISTANT_ENABLED':
+      return { ...state, aiAssistantEnabled: action.payload };
+    case 'UPDATE_BUSINESS_SETTINGS':
+      return { ...state, businessSettings: { ...state.businessSettings, ...action.payload } };
     case 'ADD_CHAT_CONVERSATION':
       return { ...state, chatHistory: [action.payload, ...state.chatHistory] };
     default:

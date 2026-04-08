@@ -60,7 +60,7 @@ export default function FitAssistant() {
   const conversationStartRef = useRef<string>('');
 
   // Don't render if admin has disabled the assistant
-  if (!state.aiEnabled) return null;
+  if (!state.aiAssistantEnabled) return null;
 
   // Reset & welcome on open or lang change
   useEffect(() => {
@@ -122,11 +122,8 @@ export default function FitAssistant() {
     }
   };
 
-  const quickButtons = state.lang === 'tr'
-    ? ['📦 Paket öner', '🔥 Kalori sorusu', '🚚 Teslimat bilgisi']
-    : state.lang === 'ru'
-    ? ['📦 Рекомендуй пакет', '🔥 Вопрос о калориях', '🚚 Информация о доставке']
-    : ['📦 Recommend a package', '🔥 Calorie question', '🚚 Delivery info'];
+  // Use quick buttons from state, with fallback for different languages
+  const quickButtons = state.aiQuickButtons;
 
   return (
     <div className="fixed bottom-6 right-6 z-[1000]">
