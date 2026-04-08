@@ -82,7 +82,8 @@ type Action =
   | { type: 'SET_TRACKING_ORDER'; payload: string }
   | { type: 'SET_AI_ASSISTANT_ENABLED'; payload: boolean }
   | { type: 'UPDATE_BUSINESS_SETTINGS'; payload: Partial<AppState['businessSettings']> }
-  | { type: 'ADD_CHAT_CONVERSATION'; payload: ChatConversation };
+  | { type: 'ADD_CHAT_CONVERSATION'; payload: ChatConversation }
+  | { type: 'SYNC_STATE'; payload: AppState };
 
 // Seed orders for demo
 const seedOrders: Order[] = [
@@ -273,6 +274,8 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, businessSettings: { ...state.businessSettings, ...action.payload } };
     case 'ADD_CHAT_CONVERSATION':
       return { ...state, chatHistory: [action.payload, ...state.chatHistory] };
+    case 'SYNC_STATE':
+      return { ...state, ...action.payload };
     default:
       return state;
   }
@@ -287,6 +290,22 @@ export function AppProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
+
+  // Sync state across tabs
+  useEffect(() => {
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === STORAGE_KEY && e.newValue) {
+        try {
+          const newState = JSON.parse(e.newValue);
+          dispatch({ type: 'SYNC_STATE', payload: newState });
+        } catch (err) {
+          console.error('Failed to sync state', err);
+        }
+      }
+    };
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
 
   return <AppContext.Provider value={{ state, dispatch }}>{children}</AppContext.Provider>;
 }

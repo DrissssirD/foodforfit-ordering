@@ -30,11 +30,18 @@ export default function SuccessPage() {
           </p>
         )}
         <p className="mb-8" style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif", lineHeight: '1.6' }}>{t('success_sub')}</p>
-        <button onClick={() => dispatch({ type: 'SET_PAGE', payload: 'packages' })}
-          className="inline-flex items-center gap-2 px-6 py-3.5 rounded-full text-sm font-semibold cursor-pointer transition-all hover:opacity-85"
-          style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>
-          {t('success_home')} <ArrowRight size={16} />
-        </button>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <button onClick={() => dispatch({ type: 'SET_PAGE', payload: 'packages' })}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-full text-sm font-semibold cursor-pointer transition-all hover:bg-gray-100 border border-[#E5DDD0]"
+            style={{ color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
+            {t('success_home')}
+          </button>
+          <button onClick={() => dispatch({ type: 'SET_PAGE', payload: 'track' })}
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-full text-sm font-semibold cursor-pointer transition-all hover:opacity-85 shadow-lg shadow-[#1E3F3020]"
+            style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>
+            {t('nav_track')} <ArrowRight size={16} />
+          </button>
+        </div>
       </div>
     </div>
   );
