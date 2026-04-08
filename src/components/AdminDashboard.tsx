@@ -127,12 +127,17 @@ function OrdersTab() {
                   {order.customerName}
                 </p>
                 <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
-                  📞 {order.customerPhone} | 📧 {order.customerEmail}
+                  <span className="font-bold">📍 Adres:</span> {order.deliveryType === 'teslimat' ? (
+                    <>
+                      {order.address || 'Adres belirtilmedi'}
+                      {order.district ? ` (${order.district})` : ''}
+                    </>
+                  ) : (
+                    <span className="text-amber-600 font-bold italic">Gel-Al (Mağazadan Teslim)</span>
+                  )}
                 </p>
                 <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
-                  📍 {order.deliveryType === 'teslimat' ? 'Teslimat' : 'Gel-Al'}
-                  {order.address ? ` - ${order.address}` : ''}
-                  {order.district ? ` (${order.district})` : ''}
+                  📞 {order.customerPhone} | 📧 {order.customerEmail}
                 </p>
                 <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
                   ⏰ {order.deliveryTime}
@@ -158,21 +163,23 @@ function OrdersTab() {
               )}
 
               {/* Order Items */}
-              <div className="mt-4">
-                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11px', fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', marginBottom: '8px' }}>
-                  Sipariş İçeriği
+              <div className="mt-4 p-4 rounded-2xl" style={{ background: '#F8F9FA', border: '1.5px solid #E5DDD0' }}>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11px', fontWeight: 800, color: '#1A1A1A', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '0.05em' }}>
+                  📦 Seçilen Ürünler
                 </p>
-                <div className="space-y-2">
+                <div className="space-y-3">
                   {order.items.map((item, idx) => (
                     <div key={idx} className="flex items-center justify-between text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                      <div className="flex items-center gap-2">
-                        <span className="w-6 h-6 rounded flex items-center justify-center text-[10px] font-bold" style={{ background: '#F5ECD7', color: gold }}>
+                      <div className="flex items-center gap-3">
+                        <span className="w-7 h-7 rounded-lg flex items-center justify-center text-[11px] font-bold" style={{ background: green, color: '#fff' }}>
                           {item.quantity}x
                         </span>
-                        <span style={{ color: '#1A1A1A' }}>{item.meal.name}</span>
-                        {item.isCreditBased && <span className="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-800">Paket</span>}
+                        <div>
+                          <p className="font-bold text-[#1A1A1A]">{item.meal.name}</p>
+                          {item.isCreditBased && <p className="text-[10px] text-green-700 font-semibold">Paket Kredisi Kullanıldı</p>}
+                        </div>
                       </div>
-                      <span style={{ color: '#8A8A8A' }}>
+                      <span className="font-bold text-[#1A1A1A]">
                         {item.isCreditBased ? '—' : `₺${(item.meal.price * item.quantity).toLocaleString('tr-TR')}`}
                       </span>
                     </div>
@@ -1558,6 +1565,26 @@ export default function AdminDashboard() {
           {/* Main content card */}
           <div className="flex-1 min-w-0">
             <div className="p-5 sm:p-6 rounded-3xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+              {/* Production Readiness Banner */}
+              <div className="mb-6 p-4 rounded-2xl flex items-center justify-between border" style={{ background: '#FFFDF9', borderColor: gold }}>
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center bg-amber-100">
+                    <Settings size={20} className="text-amber-600 animate-spin-slow" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-[#1A1A1A]">Üretime Hazırlık: Veritabanı Bağlantısı</p>
+                    <p className="text-xs text-[#8A8A8A]">Şu an veriler cihazınızda saklanıyor. Canlıya geçmek için Supabase bağlayın.</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => setTab('settings')}
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-transform active:scale-95" 
+                  style={{ background: gold }}
+                >
+                  Bağla
+                </button>
+              </div>
+
               {tab === 'orders'    && <OrdersTab />}
               {tab === 'menu'      && <MenuTab />}
               {tab === 'packages'  && <PackagesTab />}
