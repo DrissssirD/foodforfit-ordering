@@ -8,7 +8,7 @@ import type { Meal, SubscriptionPlan, Order } from '../types';
 const green = '#1E3F30';
 const gold = '#C8A97A';
 
-type AdminTab = 'orders' | 'menu' | 'packages' | 'analytics' | 'ai' | 'settings';
+type AdminTab = 'orders' | 'menu' | 'packages' | 'analytics' | 'ai' | 'settings' | 'production';
 
 const STATUS_COLORS: Record<Order['status'], { bg: string; color: string; label: string }> = {
   pending:   { bg: '#FEF9C3', color: '#854D0E', label: 'Bekliyor' },
@@ -1453,6 +1453,154 @@ function SettingsTab() {
 }
 
 // ─────────────────────────────────────────
+// PRODUCTION & DELIVERY TAB
+// ─────────────────────────────────────────
+function ProductionTab() {
+  const { state, dispatch } = useApp();
+  const [dateStr, setDateStr] = useState<string>(new Date().toISOString().split('T')[0]);
+
+  // Find deliveries for this date
+  const todaysDeliveries: { order: Order; delivery: any; isAlacarte: boolean }[] = [];
+
+  state.orders.forEach(order => {
+    if (order.status === 'cancelled') return;
+
+    if (order.deliveries && order.deliveries.length > 0) {
+      const match = order.deliveries.find(d => d.date === dateStr);
+      if (match) {
+        todaysDeliveries.push({ order, delivery: match, isAlacarte: false });
+      }
+    } else {
+      // Ala-carte orders uses `deliveryDate` or falls back to today if not set/matching
+      const oDate = order.deliveryDate || order.createdAt.split('T')[0];
+      if (oDate === dateStr) {
+        todaysDeliveries.push({ 
+          order, 
+          delivery: { id: order.id, date: oDate, status: order.status, items: order.items }, 
+          isAlacarte: true 
+        });
+      }
+    }
+  });
+
+  // Calculate aggregated meal production list
+  const productionMap = new Map<string, { meal: Meal, count: number }>();
+  todaysDeliveries.forEach(d => {
+    d.delivery.items.forEach((item: any) => {
+      const existing = productionMap.get(item.meal.id);
+      if (existing) {
+        existing.count += item.quantity;
+      } else {
+        productionMap.set(item.meal.id, { meal: item.meal, count: item.quantity });
+      }
+    });
+  });
+
+  const productionList = Array.from(productionMap.values()).sort((a,b) => b.count - a.count);
+
+  const statuses = ['pending', 'preparing', 'ready', 'delivered', 'cancelled'] as const;
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-5">
+        <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.2rem', color: '#1A1A1A' }}>
+          Günlük Üretim & Teslimat
+        </h2>
+        <input 
+          type="date" 
+          value={dateStr} 
+          onChange={e => setDateStr(e.target.value)}
+          className="px-4 py-2 border rounded-xl outline-none"
+          style={{ borderColor: '#E5DDD0', background: '#FFFFFF', fontFamily: "'Montserrat', sans-serif" }}
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Üretim Listesi - Mutfak */}
+        <div className="lg:col-span-1 p-5 rounded-2xl h-fit" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+          <h3 className="font-bold mb-4" style={{ color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>🍴 Mutfak Üretim Listesi</h3>
+          {productionList.length === 0 ? (
+            <p className="text-sm text-gray-500">Bu tarih için üretim yok.</p>
+          ) : (
+            <div className="space-y-3">
+              {productionList.map(p => (
+                <div key={p.meal.id} className="flex justify-between items-center p-3 rounded-xl bg-gray-50 border border-gray-100">
+                  <span className="text-sm font-semibold">{p.meal.name}</span>
+                  <span className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold" style={{ background: green }}>
+                    {p.count}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Dağıtım Listesi - Kurye */}
+        <div className="lg:col-span-2 p-5 rounded-2xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+          <h3 className="font-bold mb-4" style={{ color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>🚚 Dağıtım Listesi</h3>
+          {todaysDeliveries.length === 0 ? (
+            <p className="text-sm text-gray-500">Bu tarih için teslimat yok.</p>
+          ) : (
+            <div className="space-y-4">
+              {todaysDeliveries.map((td, i) => {
+                const sc = STATUS_COLORS[td.delivery.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.pending;
+                return (
+                  <div key={i} className="p-4 rounded-xl border" style={{ borderColor: '#E5DDD0', background: '#FAFAFA' }}>
+                    <div className="flex justify-between items-start mb-3">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="font-bold text-[#1A1A1A] text-lg">{td.order.customerName}</span>
+                          <span className="text-[10px] uppercase font-bold bg-[#E5DDD0] px-2 py-0.5 rounded-full text-[#4A4A4A]">{td.isAlacarte ? 'A la Carte' : 'Paket Abonelik'}</span>
+                        </div>
+                        <p className="text-sm text-gray-500 max-w-sm mb-1">{td.order.address} {td.order.district ? `(${td.order.district})` : ''}</p>
+                        <p className="text-xs text-gray-400 mb-2">📞 {td.order.customerPhone}</p>
+                        <p className="text-xs font-semibold text-green-700">{td.delivery.items.map((it: any) => `${it.quantity}x ${it.meal.name}`).join(', ')}</p>
+                      </div>
+                      <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase" style={{ background: sc.bg, color: sc.color }}>
+                        {sc.label}
+                      </span>
+                    </div>
+
+                    {/* Status Toggle */}
+                    <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
+                      {statuses.map(s => {
+                        const sc2 = STATUS_COLORS[s];
+                        const isActive = td.delivery.status === s;
+                        return (
+                          <button
+                            key={s}
+                            onClick={() => {
+                              if (td.isAlacarte) {
+                                dispatch({ type: 'UPDATE_ORDER_STATUS', payload: { id: td.order.id, status: s } });
+                              } else {
+                                dispatch({ type: 'UPDATE_ORDER_DELIVERY_STATUS', payload: { orderId: td.order.id, deliveryId: td.delivery.id, status: s } });
+                              }
+                            }}
+                            className="px-3 py-1 text-[11px] rounded-lg cursor-pointer transition-all border"
+                            style={{
+                              background: isActive ? sc2.bg : '#FFFFFF',
+                              color: isActive ? sc2.color : '#8A8A8A',
+                              borderColor: isActive ? sc2.color : '#E5DDD0',
+                              fontWeight: isActive ? 700 : 500
+                            }}
+                          >
+                            {sc2.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────
 // MAIN DASHBOARD
 // ─────────────────────────────────────────
 export default function AdminDashboard() {
@@ -1478,6 +1626,7 @@ export default function AdminDashboard() {
 
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
     { id: 'orders',   label: 'Siparişler',      icon: <ShoppingBag size={16} /> },
+    { id: 'production', label: 'Üretim & Teslimat', icon: <Truck size={16} /> },
     { id: 'menu',     label: 'Menü Yönetimi',   icon: <UtensilsCrossed size={16} /> },
     { id: 'packages', label: 'Paket Yönetimi',  icon: <Package size={16} /> },
     { id: 'analytics', label: 'Analitik',       icon: <BarChart2 size={16} /> },
@@ -1585,12 +1734,13 @@ export default function AdminDashboard() {
                 </button>
               </div>
 
-              {tab === 'orders'    && <OrdersTab />}
-              {tab === 'menu'      && <MenuTab />}
-              {tab === 'packages'  && <PackagesTab />}
-              {tab === 'analytics' && <AnalyticsTab />}
-              {tab === 'ai'        && <AIAssistantTab />}
-              {tab === 'settings'  && <SettingsTab />}
+              {tab === 'orders'     && <OrdersTab />}
+              {tab === 'production' && <ProductionTab />}
+              {tab === 'menu'       && <MenuTab />}
+              {tab === 'packages'   && <PackagesTab />}
+              {tab === 'analytics'  && <AnalyticsTab />}
+              {tab === 'ai'         && <AIAssistantTab />}
+              {tab === 'settings'   && <SettingsTab />}
             </div>
           </div>
         </div>

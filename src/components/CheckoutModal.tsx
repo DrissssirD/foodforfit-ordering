@@ -1,8 +1,8 @@
-import { useState } from 'react';
-import { X, Truck, MapPin, CreditCard } from 'lucide-react';
+import { useState, useMemo } from 'react';
+import { X, Truck, MapPin, CreditCard, Calendar } from 'lucide-react';
 import { useApp, useCartTotal } from '../store';
 import { useT } from '../i18n';
-import type { Order } from '../types';
+import type { Order, ScheduledDelivery, DeliveryItem, Meal, CartItem } from '../types';
 
 const green = '#1E3F30';
 
@@ -13,13 +13,21 @@ interface FormData {
   paymentMethod: 'cod' | 'card';
   cardNumber: string; cardExpiry: string; cardCvv: string;
   notes: string;
+  startDate: string;
+  deliveryDays: string[];
 }
+
+const tomorrow = new Date();
+tomorrow.setDate(tomorrow.getDate() + 1);
+const tomorrowStr = tomorrow.toISOString().split('T')[0];
 
 const initialForm: FormData = {
   deliveryType: 'teslimat', name: '', phone: '', email: '',
   address: '', district: '', postalCode: '',
   paymentMethod: 'cod', cardNumber: '', cardExpiry: '', cardCvv: '',
   notes: '',
+  startDate: tomorrowStr,
+  deliveryDays: ['1', '2', '3', '4', '5'], // Default to Mon-Fri
 };
 
 const iStyle = (err: boolean) => ({
@@ -28,6 +36,52 @@ const iStyle = (err: boolean) => ({
   background: '#FFFFFF', fontSize: '14px', outline: 'none',
   fontFamily: "'Montserrat', sans-serif", color: '#1A1A1A', transition: 'border-color 0.2s',
 });
+
+// Auto-Scheduler Logic
+function generateDeliveries(cart: CartItem[], startDateStr: string, allowedDays: string[]): ScheduledDelivery[] {
+  if (cart.length === 0 || allowedDays.length === 0) return [];
+  
+  const allMeals: Meal[] = [];
+  for (const item of cart) {
+    for (let i = 0; i < item.quantity; i++) {
+      allMeals.push(item.meal);
+    }
+  }
+  
+  const mealsPerDay = 2; // By default, package delivers 2 meals a day
+  const deliveries: ScheduledDelivery[] = [];
+  let currentDate = new Date(startDateStr);
+  let mealIndex = 0;
+  
+  while (mealIndex < allMeals.length) {
+    const dayOfWeek = currentDate.getDay() === 0 ? '7' : currentDate.getDay().toString();
+    
+    if (allowedDays.includes(dayOfWeek)) {
+      const dayMeals = allMeals.slice(mealIndex, mealIndex + mealsPerDay);
+      const deliveryItemsMap = new Map<string, DeliveryItem>();
+      
+      for (const m of dayMeals) {
+        if (deliveryItemsMap.has(m.id)) {
+           deliveryItemsMap.get(m.id)!.quantity++;
+        } else {
+           deliveryItemsMap.set(m.id, { meal: m, quantity: 1 });
+        }
+      }
+      
+      deliveries.push({
+        id: `del-${Date.now()}-${deliveries.length}`,
+        date: currentDate.toISOString().split('T')[0],
+        status: 'pending',
+        items: Array.from(deliveryItemsMap.values())
+      });
+      
+      mealIndex += mealsPerDay;
+    }
+    currentDate.setDate(currentDate.getDate() + 1);
+  }
+  
+  return deliveries;
+}
 
 export default function CheckoutModal() {
   const { state, dispatch } = useApp();
@@ -38,16 +92,19 @@ export default function CheckoutModal() {
 
   const alacarteTotal = useCartTotal(state.cart);
   const isSubscription = !!state.subscriptionPlan;
-  // Use business settings for delivery thresholds
   const FREE_DELIVERY_THRESHOLD = state.businessSettings.freeDeliveryThreshold;
   const DELIVERY_FEE = state.businessSettings.deliveryFee;
-  // Subscription: total = plan price, free delivery. À la carte: normal calculation.
   const deliveryFee = isSubscription ? 0 : (alacarteTotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE);
   const orderTotal = isSubscription ? (state.subscriptionPlan?.price ?? 0) : alacarteTotal + deliveryFee;
 
+  const plannedDeliveries = useMemo(
+    () => isSubscription ? generateDeliveries(state.cart, form.startDate, form.deliveryDays) : [],
+    [isSubscription, state.cart, form.startDate, form.deliveryDays]
+  );
+
   if (!state.checkoutOpen) return null;
 
-  const update = (key: keyof FormData, value: string) => {
+  const update = (key: keyof FormData, value: any) => {
     setForm(p => ({ ...p, [key]: value }));
     if (errors[key]) setErrors(p => { const n = { ...p }; delete n[key]; return n; });
   };
@@ -89,9 +146,11 @@ export default function CheckoutModal() {
       const order: Order = {
         id: `order-${Date.now()}`, orderNumber: orderNum,
         customerName: form.name, customerPhone: form.phone, customerEmail: form.email,
-        items: [...state.cart], total: orderTotal,
+        items: [...state.cart], 
+        deliveries: isSubscription ? plannedDeliveries : undefined,
+        total: orderTotal,
         deliveryType: form.deliveryType, address: form.address, district: form.district,
-        deliveryDate: '', deliveryTime: '',
+        deliveryDate: form.startDate, deliveryTime: '',
         paymentMethod: form.paymentMethod, status: 'pending',
         createdAt: new Date().toISOString(), subscriptionPlan: state.subscriptionPlan,
         notes: form.notes.trim() || undefined,
@@ -102,6 +161,11 @@ export default function CheckoutModal() {
 
   const labelStyle = { fontSize: '13px', fontWeight: 500, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", marginBottom: '8px', display: 'block' };
   const errStyle = { color: '#C0392B', fontSize: '11px', marginTop: '4px', fontFamily: "'Montserrat', sans-serif" };
+
+  const finalStepNum = isSubscription ? 3 : 2;
+  const stepsList = isSubscription 
+    ? [{ n: 1, label: t('chk_info') }, { n: 2, label: 'Takvim' }, { n: 3, label: t('chk_payment') }]
+    : [{ n: 1, label: t('chk_info') }, { n: 2, label: t('chk_payment') }];
 
   return (
     <>
@@ -121,14 +185,14 @@ export default function CheckoutModal() {
           </div>
 
           <div className="px-6 pt-5 pb-1 flex items-center justify-center gap-2">
-            {[{ n: 1, label: t('chk_info') }, { n: 2, label: t('chk_payment') }].map((s, i) => (
+            {stepsList.map((s, i) => (
               <div key={s.n} className="flex items-center gap-2">
                 <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold"
                   style={{ background: step >= s.n ? green : '#E5DDD0', color: step >= s.n ? '#fff' : '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
                   {s.n}
                 </div>
-                <span className="text-xs font-medium" style={{ color: step >= s.n ? green : '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>{s.label}</span>
-                {i === 0 && <div className="w-8 h-px mx-1" style={{ background: step >= 2 ? green : '#E5DDD0' }} />}
+                <span className="text-xs font-medium" style={{ color: step >= s.n ? green : '#8A8A8A', fontFamily: "'Montserrat', sans-serif", display: window.innerWidth < 400 && i !== step - 1 ? 'none' : 'block' }}>{s.label}</span>
+                {i < stepsList.length - 1 && <div className="w-6 h-px mx-1" style={{ background: step > i + 1 ? green : '#E5DDD0' }} />}
               </div>
             ))}
           </div>
@@ -181,26 +245,78 @@ export default function CheckoutModal() {
               </div>
             )}
 
-            {step === 2 && (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {step === 2 && isSubscription && (
+              <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                <div>
+                  <label style={labelStyle} className="flex items-center gap-2"><Calendar size={16} /> Başlangıç Tarihi</label>
+                  <p style={{ fontSize: '12px', color: '#8A8A8A', marginBottom: '8px', fontFamily: "'Montserrat', sans-serif" }}>
+                    Paketinizin teslim edilmeye başlayacağı tarihi seçin.
+                  </p>
+                  <input type="date" value={form.startDate} onChange={e => update('startDate', e.target.value)} style={iStyle(false)} min={new Date().toISOString().split('T')[0]} />
+                </div>
+                
+                <div>
+                  <label style={labelStyle}>Teslimat Günleri (Her Hafta)</label>
+                  <p style={{ fontSize: '12px', color: '#8A8A8A', marginBottom: '10px', fontFamily: "'Montserrat', sans-serif" }}>
+                    Hangi günler teslimat almak istersiniz? Seçtiğiniz ürünler bu günlere eşit dağıtılacak.
+                  </p>
+                  <div className="flex flex-wrap gap-2">
+                    {[{v:'1',l:'Pzt'},{v:'2',l:'Sal'},{v:'3',l:'Çar'},{v:'4',l:'Per'},{v:'5',l:'Cum'},{v:'6',l:'Cmt'},{v:'7',l:'Paz'}].map(d => {
+                      const isActive = form.deliveryDays.includes(d.v);
+                      return (
+                        <button key={d.v} onClick={() => {
+                          const nd = isActive ? form.deliveryDays.filter(x => x !== d.v) : [...form.deliveryDays, d.v];
+                          if (nd.length > 0) update('deliveryDays', nd);
+                        }}
+                        className="px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer"
+                        style={{ background: isActive ? green : '#FFFFFF', color: isActive ? '#fff' : '#4A4A4A', border: `1.5px solid ${isActive ? green : '#E5DDD0'}`, fontFamily: "'Montserrat', sans-serif" }}>
+                          {d.l}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div>
+                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", marginBottom: '12px' }}>
+                    Sipariş Takvimi (Önizleme)
+                  </h4>
+                  <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
+                    {plannedDeliveries.map((del, idx) => (
+                       <div key={idx} className="p-4 bg-white rounded-xl border border-[#E5DDD0] flex flex-col gap-2">
+                         <span className="font-bold text-[#1A1A1A] text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                           {new Date(del.date).toLocaleDateString('tr-TR', { weekday: 'long', month: 'short', day: 'numeric' })}
+                         </span>
+                         <span className="text-gray-500 text-xs" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                           {del.items.map(i => `${i.quantity}x ${i.meal.name}`).join(' • ')}
+                         </span>
+                       </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {step === finalStepNum && (
+              <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <label style={labelStyle}>{t('chk_payment_method')}</label>
                 {[{ value: 'cod' as const, icon: <Truck size={16} />, title: t('chk_cod'), desc: t('chk_cod_desc') }, { value: 'card' as const, icon: <CreditCard size={16} />, title: t('chk_card'), desc: t('chk_card_desc') }].map(opt => (
                   <button key={opt.value} onClick={() => update('paymentMethod', opt.value)}
-                    className="flex items-center gap-4 p-4 rounded-xl text-left cursor-pointer w-full"
+                    className="flex items-center gap-4 p-4 rounded-xl text-left cursor-pointer w-full transition-all"
                     style={{ border: `1.5px solid ${form.paymentMethod === opt.value ? green : '#E5DDD0'}`, background: form.paymentMethod === opt.value ? '#E8F0E8' : '#FFFFFF' }}>
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: form.paymentMethod === opt.value ? green : '#F5ECD7', color: form.paymentMethod === opt.value ? '#fff' : '#C8A97A' }}>{opt.icon}</div>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all" style={{ background: form.paymentMethod === opt.value ? green : '#F5ECD7', color: form.paymentMethod === opt.value ? '#fff' : '#C8A97A' }}>{opt.icon}</div>
                     <div><div style={{ fontSize: '14px', fontWeight: 600, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>{opt.title}</div><div style={{ fontSize: '12px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>{opt.desc}</div></div>
                   </button>
                 ))}
                 {form.paymentMethod === 'card' && (
-                  <div className="p-4 rounded-xl" style={{ background: '#FFFFFF', border: '1px solid #E5DDD0' }}>
+                  <div className="p-4 rounded-xl animate-fade-in-up" style={{ background: '#FFFFFF', border: '1px solid #E5DDD0' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                       <div><input placeholder={t('chk_card_num')} value={form.cardNumber} onChange={e => update('cardNumber', formatCard(e.target.value))} maxLength={19} style={iStyle(!!errors.cardNumber)} />{errors.cardNumber && <p style={errStyle}>{errors.cardNumber}</p>}</div>
                       <div className="grid grid-cols-2 gap-3">
                         <div><input placeholder={t('chk_expiry')} value={form.cardExpiry} onChange={e => update('cardExpiry', formatExp(e.target.value))} maxLength={5} style={iStyle(!!errors.cardExpiry)} />{errors.cardExpiry && <p style={errStyle}>{errors.cardExpiry}</p>}</div>
                         <div><input placeholder={t('chk_cvv')} value={form.cardCvv} onChange={e => update('cardCvv', e.target.value.replace(/\D/g,'').slice(0,3))} maxLength={3} type="password" style={iStyle(!!errors.cardCvv)} />{errors.cardCvv && <p style={errStyle}>{errors.cardCvv}</p>}</div>
                       </div>
-                      <p style={{ fontSize: '11px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>🔒 {t('chk_ssl')}</p>
+                      <p style={{ fontSize: '11px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif", marginTop: '4px' }}>🔒 {t('chk_ssl')}</p>
                     </div>
                   </div>
                 )}
@@ -208,27 +324,25 @@ export default function CheckoutModal() {
                   <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", marginBottom: '12px' }}>{t('chk_summary')}</h4>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                     {isSubscription ? (
-                      /* Subscription summary: show plan name + meal count */
                       <div className="flex justify-between" style={{ fontSize: '13px', color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
-                        <span>📦 {state.subscriptionPlan!.name}</span>
+                        <span className="font-semibold text-green-800">📦 {state.subscriptionPlan!.name}</span>
                         <span>{state.subscriptionPlan!.mealCount} {t('cart_items')}</span>
                       </div>
                     ) : (
-                      /* À la carte: list each item */
                       state.cart.map(item => (
                         <div key={item.meal.id} className="flex justify-between" style={{ fontSize: '13px', color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
                           <span>{item.meal.name} × {item.quantity}</span>
-                          <span>₺{(item.meal.price * item.quantity).toLocaleString('tr-TR')}</span>
+                          <span className="font-semibold">₺{(item.meal.price * item.quantity).toLocaleString('tr-TR')}</span>
                         </div>
                       ))
                     )}
                     <div style={{ borderTop: '1px solid #E5DDD0', paddingTop: '10px', marginTop: '4px' }}>
                       <div className="flex justify-between" style={{ fontSize: '13px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif", marginBottom: '4px' }}>
                         <span>{t('cart_delivery')}</span>
-                        <span style={{ color: deliveryFee === 0 ? green : '#1A1A1A' }}>{deliveryFee === 0 ? t('cart_free') : `₺${deliveryFee}`}</span>
+                        <span style={{ color: deliveryFee === 0 ? green : '#1A1A1A', fontWeight: deliveryFee===0 ? 700 : 500 }}>{deliveryFee === 0 ? t('cart_free') : `₺${deliveryFee}`}</span>
                       </div>
-                      <div className="flex justify-between" style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>
-                        <span>{t('cart_total')}</span><span>₺{orderTotal.toLocaleString('tr-TR')}</span>
+                      <div className="flex justify-between" style={{ fontSize: '16px', fontWeight: 800, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", paddingTop: '4px' }}>
+                        <span>{t('cart_total')}</span><span style={{ color: green }}>₺{orderTotal.toLocaleString('tr-TR')}</span>
                       </div>
                     </div>
                   </div>
@@ -237,19 +351,23 @@ export default function CheckoutModal() {
             )}
           </div>
 
-          <div className="px-6 py-4 border-t flex items-center justify-between gap-3" style={{ borderColor: '#E5DDD0' }}>
+          <div className="px-6 py-4 border-t flex items-center justify-between gap-3" style={{ borderColor: '#E5DDD0', background: '#FFFFFF' }}>
             {step === 1 ? (
               <>
                 <button onClick={() => { dispatch({ type: 'TOGGLE_CHECKOUT', payload: false }); dispatch({ type: 'TOGGLE_CART', payload: true }); }}
-                  className="px-5 py-3 text-sm font-medium cursor-pointer hover:opacity-70" style={{ color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_back_cart')}</button>
+                  className="px-5 py-3 text-sm font-medium cursor-pointer hover:bg-gray-50 rounded-xl transition-all" style={{ color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_back_cart')}</button>
                 <button onClick={() => { if (validateStep1()) setStep(2); }}
-                  className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer"
+                  className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer transition-transform active:scale-95 shadow-md flex-1 text-center"
                   style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_continue')}</button>
               </>
             ) : (
               <>
-                <button onClick={() => setStep(1)} className="px-5 py-3 text-sm font-medium cursor-pointer hover:opacity-70" style={{ color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_back')}</button>
-                <button onClick={handleSubmit} className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer" style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_confirm')}</button>
+                <button onClick={() => setStep(step - 1)} className="px-5 py-3 text-sm font-medium cursor-pointer hover:bg-gray-50 rounded-xl transition-all" style={{ color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_back')}</button>
+                {step === finalStepNum ? (
+                  <button onClick={handleSubmit} className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer transition-transform active:scale-95 shadow-md flex-1 text-center" style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_confirm')}</button>
+                ) : (
+                   <button onClick={() => setStep(step + 1)} className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer transition-transform active:scale-95 shadow-md flex-1 text-center" style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_continue')}</button>
+                )}
               </>
             )}
           </div>

@@ -231,8 +231,8 @@ export default function OrderTrackingPage() {
               </div>
             </div>
 
-            {/* Visual Tracker */}
-            {foundOrder.status !== 'cancelled' && (
+            {/* Visual Tracker - Ala carte orders */}
+            {(!foundOrder.deliveries || foundOrder.deliveries.length === 0) && foundOrder.status !== 'cancelled' && (
               <div className="p-6 rounded-3xl bg-white border border-[#E5DDD0]">
                 <div className="flex flex-col gap-8 relative">
                   {steps.map((step, i) => {
@@ -273,6 +273,35 @@ export default function OrderTrackingPage() {
                   <p className="text-[11px] text-gray-400 font-medium">
                     Son güncelleme: {lastUpdate ? lastUpdate.toLocaleTimeString('tr-TR') : 'Yükleniyor...'}
                   </p>
+                </div>
+              </div>
+            )}
+
+            {/* Daily Tracker - Subscription Scheduled Orders */}
+            {foundOrder.deliveries && foundOrder.deliveries.length > 0 && foundOrder.status !== 'cancelled' && (
+              <div className="p-6 rounded-3xl bg-white border border-[#E5DDD0]">
+                <h3 className="font-bold text-[#1A1A1A] mb-4" style={{ fontFamily: "'Montserrat', sans-serif" }}>Teslimat Takvimi</h3>
+                <div className="flex flex-col gap-4">
+                  {foundOrder.deliveries.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((del, idx) => {
+                    const statusColor = STATUS_COLORS[del.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.pending;
+                    return (
+                      <div key={del.id} className="p-4 rounded-xl border flex flex-col gap-2 relative overflow-hidden transition-all" 
+                           style={{ background: del.status === 'delivered' ? '#F4FBF6' : '#FFFFFF', borderColor: del.status === 'delivered' ? `${green}40` : '#F0EDE8' }}>
+                         {del.status === 'delivered' && <div className="absolute top-0 right-0 w-1.5 h-full" style={{ background: green }} />}
+                         <div className="flex justify-between items-center">
+                           <span className="font-bold text-sm text-[#1A1A1A]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                             1. HAFTA / {idx + 1}. GÜN <span className="text-gray-400 font-normal ml-1">— {new Date(del.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })}</span>
+                           </span>
+                           <span className="px-2.5 py-1 text-[10px] font-bold rounded-full uppercase" style={{ background: statusColor.bg, color: statusColor.color, fontFamily: "'Montserrat', sans-serif" }}>
+                             {statusColor.label}
+                           </span>
+                         </div>
+                         <div className="text-xs text-gray-500 font-medium leading-relaxed" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                           {del.items.map(i => `${i.quantity}x ${i.meal.name}`).join(' • ')}
+                         </div>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}

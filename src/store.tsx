@@ -3,7 +3,7 @@ import type { CartItem, Meal, SubscriptionPlan, Page, Order, ChatConversation } 
 import type { Lang } from './i18n';
 import { meals as initialMeals, subscriptionPlans as initialPlans } from './data';
 
-const STORAGE_KEY = 'foodforfit_state_v5';
+const STORAGE_KEY = 'foodforfit_state_v6';
 
 const DEFAULT_AI_PROMPT = `You are FIT Assistant, a friendly nutrition and meal planning assistant for Food For Fit — a premium healthy meal delivery service in Turkey.
 
@@ -83,7 +83,8 @@ type Action =
   | { type: 'SET_AI_ASSISTANT_ENABLED'; payload: boolean }
   | { type: 'UPDATE_BUSINESS_SETTINGS'; payload: Partial<AppState['businessSettings']> }
   | { type: 'ADD_CHAT_CONVERSATION'; payload: ChatConversation }
-  | { type: 'SYNC_STATE'; payload: AppState };
+  | { type: 'SYNC_STATE'; payload: AppState }
+  | { type: 'UPDATE_ORDER_DELIVERY_STATUS'; payload: { orderId: string; deliveryId: string; status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' } };
 
 // Seed orders for demo
 const seedOrders: Order[] = [
@@ -243,6 +244,14 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, lang: action.payload };
     case 'UPDATE_ORDER_STATUS':
       return { ...state, orders: state.orders.map(o => o.id === action.payload.id ? { ...o, status: action.payload.status } : o) };
+    case 'UPDATE_ORDER_DELIVERY_STATUS':
+      return {
+        ...state,
+        orders: state.orders.map(o => o.id === action.payload.orderId ? {
+          ...o,
+          deliveries: o.deliveries?.map(d => d.id === action.payload.deliveryId ? { ...d, status: action.payload.status } : d)
+        } : o)
+      };
     case 'UPDATE_MEAL':
       return { ...state, adminMeals: state.adminMeals.map(m => m.id === action.payload.id ? action.payload : m) };
     case 'ADD_MEAL':

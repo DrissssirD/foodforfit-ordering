@@ -42,13 +42,26 @@ export interface CartItem {
   isCreditBased: boolean;
 }
 
+export interface DeliveryItem {
+  meal: Meal;
+  quantity: number;
+}
+
+export interface ScheduledDelivery {
+  id: string;
+  date: string; // YYYY-MM-DD format
+  status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
+  items: DeliveryItem[];
+}
+
 export interface Order {
   id: string;
   orderNumber: string;
   customerName: string;
   customerPhone: string;
   customerEmail: string;
-  items: CartItem[];
+  items: CartItem[]; // used for alacarte or simple representation
+  deliveries?: ScheduledDelivery[]; // used for scheduled / subscription orders
   total: number;
   deliveryType: 'teslimat' | 'gelal';
   address?: string;
