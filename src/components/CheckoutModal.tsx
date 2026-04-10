@@ -15,11 +15,21 @@ interface FormData {
   notes: string;
   startDate: string;
   deliveryDays: string[];
+  timeSlot: string;
 }
 
 const tomorrow = new Date();
 tomorrow.setDate(tomorrow.getDate() + 1);
 const tomorrowStr = tomorrow.toISOString().split('T')[0];
+
+const timeSlots = [
+  '08:00 - 10:00',
+  '10:00 - 12:00',
+  '12:00 - 14:00',
+  '14:00 - 16:00',
+  '16:00 - 18:00',
+  '18:00 - 20:00'
+];
 
 const initialForm: FormData = {
   deliveryType: 'teslimat', name: '', phone: '', email: '',
@@ -28,6 +38,7 @@ const initialForm: FormData = {
   notes: '',
   startDate: tomorrowStr,
   deliveryDays: ['1', '2', '3', '4', '5'], // Default to Mon-Fri
+  timeSlot: '08:00 - 10:00',
 };
 
 const iStyle = (err: boolean) => ({
@@ -38,7 +49,7 @@ const iStyle = (err: boolean) => ({
 });
 
 // Auto-Scheduler Logic
-function generateDeliveries(cart: CartItem[], startDateStr: string, allowedDays: string[]): ScheduledDelivery[] {
+function generateDeliveries(cart: CartItem[], startDateStr: string, allowedDays: string[], timeSlot: string): ScheduledDelivery[] {
   if (cart.length === 0 || allowedDays.length === 0) return [];
   
   const allMeals: Meal[] = [];
@@ -71,6 +82,7 @@ function generateDeliveries(cart: CartItem[], startDateStr: string, allowedDays:
       deliveries.push({
         id: `del-${Date.now()}-${deliveries.length}`,
         date: currentDate.toISOString().split('T')[0],
+        timeSlot: timeSlot,
         status: 'pending',
         items: Array.from(deliveryItemsMap.values())
       });
@@ -98,8 +110,8 @@ export default function CheckoutModal() {
   const orderTotal = isSubscription ? (state.subscriptionPlan?.price ?? 0) : alacarteTotal + deliveryFee;
 
   const plannedDeliveries = useMemo(
-    () => isSubscription ? generateDeliveries(state.cart, form.startDate, form.deliveryDays) : [],
-    [isSubscription, state.cart, form.startDate, form.deliveryDays]
+    () => isSubscription ? generateDeliveries(state.cart, form.startDate, form.deliveryDays, form.timeSlot) : [],
+    [isSubscription, state.cart, form.startDate, form.deliveryDays, form.timeSlot]
   );
 
   if (!state.checkoutOpen) return null;
@@ -256,6 +268,18 @@ export default function CheckoutModal() {
                 </div>
                 
                 <div>
+                  <label style={labelStyle}>Tercih Edilen Teslimat Saati</label>
+                  <p style={{ fontSize: '12px', color: '#8A8A8A', marginBottom: '8px', fontFamily: "'Montserrat', sans-serif" }}>
+                    Öğünlerinizin teslim edilmesini istediğiniz saat aralığını seçin.
+                  </p>
+                  <select value={form.timeSlot} onChange={e => update('timeSlot', e.target.value)} style={iStyle(false)}>
+                    {timeSlots.map(slot => (
+                      <option key={slot} value={slot}>{slot}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
                   <label style={labelStyle}>Teslimat Günleri (Her Hafta)</label>
                   <p style={{ fontSize: '12px', color: '#8A8A8A', marginBottom: '10px', fontFamily: "'Montserrat', sans-serif" }}>
                     Hangi günler teslimat almak istersiniz? Seçtiğiniz ürünler bu günlere eşit dağıtılacak.
@@ -284,9 +308,14 @@ export default function CheckoutModal() {
                   <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                     {plannedDeliveries.map((del, idx) => (
                        <div key={idx} className="p-4 bg-white rounded-xl border border-[#E5DDD0] flex flex-col gap-2">
-                         <span className="font-bold text-[#1A1A1A] text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                           {new Date(del.date).toLocaleDateString('tr-TR', { weekday: 'long', month: 'short', day: 'numeric' })}
-                         </span>
+                         <div className="flex justify-between items-center">
+                           <span className="font-bold text-[#1A1A1A] text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                             {new Date(del.date).toLocaleDateString('tr-TR', { weekday: 'long', month: 'short', day: 'numeric' })}
+                           </span>
+                           <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full uppercase" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                             {del.timeSlot}
+                           </span>
+                         </div>
                          <span className="text-gray-500 text-xs" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                            {del.items.map(i => `${i.quantity}x ${i.meal.name}`).join(' • ')}
                          </span>

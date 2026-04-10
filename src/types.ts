@@ -50,6 +50,7 @@ export interface DeliveryItem {
 export interface ScheduledDelivery {
   id: string;
   date: string; // YYYY-MM-DD format
+  timeSlot?: string; // e.g. "08:00 - 10:00"
   status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
   items: DeliveryItem[];
 }

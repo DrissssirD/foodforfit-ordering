@@ -68,41 +68,46 @@ export default function MealCard({ meal, compact }: Props) {
           <span>·</span><span>🌾 {meal.carbs}g</span>
         </div>
         <div className="flex items-center justify-between gap-2">
-          {isSubscription
-            ? <span className="text-sm font-semibold" style={{ color: green, fontFamily: "'Montserrat', sans-serif" }}>1 {t('meal_credit')}</span>
-            : <span className="text-xl font-bold" style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, color: '#1A1A1A' }}>₺{meal.price}</span>}
-          {inCart ? (
-            <div className="flex items-center gap-2">
-              <button onClick={handleRemove} className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer" style={{ background: '#F5ECD7', color: green }}><Minus size={14} /></button>
-              <span className="w-6 text-center text-sm font-semibold" style={{ fontFamily: "'Montserrat', sans-serif", color: '#1A1A1A' }}>{inCart.quantity}</span>
-              {/* In subscription mode, disable + when no credits left */}
-              <button
-                onClick={handleAdd}
-                disabled={isSubscription ? state.creditsRemaining <= 0 : false}
-                className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200"
-                style={{
-                  background: (isSubscription && state.creditsRemaining <= 0) ? '#E5DDD0' : green,
-                  color: '#fff',
-                  cursor: (isSubscription && state.creditsRemaining <= 0) ? 'not-allowed' : 'pointer',
-                  opacity: (isSubscription && state.creditsRemaining <= 0) ? 0.5 : 1,
-                }}
-              ><Plus size={14} /></button>
-            </div>
+          {isSubscription ? (
+            <>
+              <span className="text-sm font-semibold" style={{ color: green, fontFamily: "'Montserrat', sans-serif" }}>1 {t('meal_credit')}</span>
+              {inCart ? (
+                <div className="flex items-center gap-2">
+                  <button onClick={handleRemove} className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer" style={{ background: '#F5ECD7', color: green }}><Minus size={14} /></button>
+                  <span className="w-6 text-center text-sm font-semibold" style={{ fontFamily: "'Montserrat', sans-serif", color: '#1A1A1A' }}>{inCart.quantity}</span>
+                  <button
+                    onClick={handleAdd}
+                    disabled={state.creditsRemaining <= 0}
+                    className="w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200"
+                    style={{
+                      background: state.creditsRemaining <= 0 ? '#E5DDD0' : green,
+                      color: '#fff',
+                      cursor: state.creditsRemaining <= 0 ? 'not-allowed' : 'pointer',
+                      opacity: state.creditsRemaining <= 0 ? 0.5 : 1,
+                    }}
+                  ><Plus size={14} /></button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleAdd}
+                  disabled={state.creditsRemaining <= 0}
+                  className="px-4 py-2 text-sm font-medium rounded-full flex items-center gap-1.5 transition-all duration-200"
+                  style={{
+                    background: state.creditsRemaining <= 0 ? '#E5DDD0' : green,
+                    color: state.creditsRemaining <= 0 ? '#8A8A8A' : '#fff',
+                    fontFamily: "'Montserrat', sans-serif",
+                    cursor: state.creditsRemaining <= 0 ? 'not-allowed' : 'pointer',
+                    opacity: state.creditsRemaining <= 0 ? 0.5 : 1,
+                  }}
+                >
+                  <Plus size={14} />{t('meal_add')}
+                </button>
+              )}
+            </>
           ) : (
-            <button
-              onClick={handleAdd}
-              disabled={isSubscription ? state.creditsRemaining <= 0 : false}
-              className="px-4 py-2 text-sm font-medium rounded-full flex items-center gap-1.5 transition-all duration-200"
-              style={{
-                background: (isSubscription && state.creditsRemaining <= 0) ? '#E5DDD0' : green,
-                color: (isSubscription && state.creditsRemaining <= 0) ? '#8A8A8A' : '#fff',
-                fontFamily: "'Montserrat', sans-serif",
-                cursor: (isSubscription && state.creditsRemaining <= 0) ? 'not-allowed' : 'pointer',
-                opacity: (isSubscription && state.creditsRemaining <= 0) ? 0.5 : 1,
-              }}
-            >
-              <Plus size={14} />{t('meal_add')}
-            </button>
+             <span className="text-[11px] font-semibold tracking-wider uppercase px-3 py-1.5 rounded-lg border" style={{ color: '#8A8A8A', borderColor: '#E5DDD0', background: '#FAFAFA' }}>
+               Paket Seçimi Gerekli
+             </span>
           )}
         </div>
       </div>

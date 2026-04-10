@@ -80,36 +80,71 @@ function AdminLogin({ onLogin, adminPassword }: { onLogin: () => void; adminPass
 // ─────────────────────────────────────────
 function OrdersTab() {
   const { state, dispatch } = useApp();
+  const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'cancelled'>('active');
   const statuses: Order['status'][] = ['pending', 'preparing', 'ready', 'delivered', 'cancelled'];
+
+  const filteredOrders = state.orders.filter(o => {
+    if (filter === 'all') return true;
+    if (filter === 'active') return ['pending', 'preparing', 'ready'].includes(o.status);
+    if (filter === 'completed') return o.status === 'delivered';
+    if (filter === 'cancelled') return o.status === 'cancelled';
+    return true;
+  });
 
   return (
     <div>
-      <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.2rem', color: '#1A1A1A', marginBottom: '20px' }}>
-        Siparişler
-      </h2>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+        <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.2rem', color: '#1A1A1A' }}>
+          Siparişler
+        </h2>
+        
+        {/* Simple Filters */}
+        <div className="flex bg-[#F5F5F5] p-1 rounded-xl border border-[#E5DDD0]">
+          {(['active', 'completed', 'cancelled', 'all'] as const).map(f => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all capitalize"
+              style={{
+                background: filter === f ? '#FFFFFF' : 'transparent',
+                color: filter === f ? green : '#8A8A8A',
+                boxShadow: filter === f ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                fontFamily: "'Montserrat', sans-serif"
+              }}
+            >
+              {f === 'active' ? 'Aktif' : f === 'completed' ? 'Tamamlanan' : f === 'cancelled' ? 'İptal' : 'Tümü'}
+            </button>
+          ))}
+        </div>
+      </div>
 
-      {state.orders.length === 0 && (
+      {filteredOrders.length === 0 && (
         <div className="text-center py-16">
           <ShoppingBag size={36} style={{ color: '#E5DDD0', margin: '0 auto 12px' }} />
-          <p style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>Henüz sipariş yok</p>
+          <p style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>Sipariş bulunamadı</p>
         </div>
       )}
 
       <div className="space-y-4">
-        {state.orders.map(order => {
+        {filteredOrders.map(order => {
           const sc = STATUS_COLORS[order.status];
           return (
-            <div key={order.id} className="p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+            <div key={order.id} className="p-5 rounded-xl transition-all hover:shadow-md" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
               {/* Top row: order number + status + total */}
               <div className="flex flex-wrap items-start justify-between gap-3 mb-2">
                 <div className="flex items-center gap-3 flex-wrap">
                   <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, color: '#1A1A1A', fontSize: '1rem' }}>
                     {order.orderNumber}
                   </span>
-                  <span className="px-2.5 py-1 rounded-full text-xs font-semibold"
+                  <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
                     style={{ background: sc.bg, color: sc.color, fontFamily: "'Montserrat', sans-serif" }}>
                     {sc.label}
                   </span>
+                  {order.subscriptionPlan && (
+                    <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-50 text-green-700 border border-green-100 flex items-center gap-1">
+                      <Package size={10} /> {order.subscriptionPlan.name}
+                    </span>
+                  )}
                 </div>
                 <div className="text-right">
                   <p style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.1rem', color: '#1A1A1A' }}>
@@ -136,18 +171,26 @@ function OrdersTab() {
                     <span className="text-amber-600 font-bold italic">Gel-Al (Mağazadan Teslim)</span>
                   )}
                 </p>
-                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
-                  📞 {order.customerPhone} | 📧 {order.customerEmail}
-                </p>
-                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
-                  ⏰ {order.deliveryTime}
-                </p>
-                <div className="flex items-center gap-2 mt-1" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: green, fontWeight: 600 }}>
-                  {order.paymentMethod === 'cod' ? (
-                    <><Truck size={14} /> Kapıda Ödeme (COD)</>
-                  ) : (
-                    <><CreditCard size={14} /> Kartla Ödeme (Online)</>
-                  )}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+                  <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
+                    📞 {order.customerPhone}
+                  </p>
+                  <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
+                    📧 {order.customerEmail}
+                  </p>
+                </div>
+                
+                <div className="flex flex-wrap items-center gap-4 mt-2">
+                  <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: gold, fontWeight: 700 }}>
+                    ⏰ {order.deliveryTime || 'Tercihen: ' + (order.deliveries?.[0]?.timeSlot || 'Belirtilmedi')}
+                  </p>
+                  <div className="flex items-center gap-2" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: green, fontWeight: 600 }}>
+                    {order.paymentMethod === 'cod' ? (
+                      <><Truck size={14} /> Kapıda Ödeme (COD)</>
+                    ) : (
+                      <><CreditCard size={14} /> Kartla Ödeme (Online)</>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -163,10 +206,17 @@ function OrdersTab() {
               )}
 
               {/* Order Items */}
-              <div className="mt-4 p-4 rounded-2xl" style={{ background: '#F8F9FA', border: '1.5px solid #E5DDD0' }}>
-                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11px', fontWeight: 800, color: '#1A1A1A', textTransform: 'uppercase', marginBottom: '10px', letterSpacing: '0.05em' }}>
-                  📦 Seçilen Ürünler
-                </p>
+              <div className="mt-4 p-4 rounded-xl" style={{ background: '#F8F9FA', border: '1.5px solid #E5DDD0' }}>
+                <div className="flex justify-between items-center mb-3">
+                  <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11px', fontWeight: 800, color: '#1A1A1A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    📦 Paket Detayları
+                  </p>
+                  {order.deliveries && (
+                    <span className="text-[10px] font-bold text-gray-400">
+                      {order.deliveries.length} Teslimat Günü
+                    </span>
+                  )}
+                </div>
                 <div className="space-y-3">
                   {order.items.map((item, idx) => (
                     <div key={idx} className="flex items-center justify-between text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
@@ -176,7 +226,7 @@ function OrdersTab() {
                         </span>
                         <div>
                           <p className="font-bold text-[#1A1A1A]">{item.meal.name}</p>
-                          {item.isCreditBased && <p className="text-[10px] text-green-700 font-semibold">Paket Kredisi Kullanıldı</p>}
+                          {item.isCreditBased && <p className="text-[10px] text-green-700 font-semibold">Paket Kredisi</p>}
                         </div>
                       </div>
                       <span className="font-bold text-[#1A1A1A]">
@@ -184,14 +234,6 @@ function OrdersTab() {
                       </span>
                     </div>
                   ))}
-                  {order.subscriptionPlan && (
-                    <div className="flex items-center gap-2 p-2 rounded-lg mt-1" style={{ background: '#E8F0E8', border: `1px solid ${green}20` }}>
-                      <Package size={14} style={{ color: green }} />
-                      <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', fontWeight: 600, color: green }}>
-                        {order.subscriptionPlan.name} (Paket Satın Alımı)
-                      </span>
-                    </div>
-                  )}
                 </div>
               </div>
 
@@ -204,13 +246,13 @@ function OrdersTab() {
                     <button
                       key={s}
                       onClick={() => dispatch({ type: 'UPDATE_ORDER_STATUS', payload: { id: order.id, status: s } })}
-                      className="px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all"
+                      className="px-3 py-1.5 rounded-xl text-[11px] font-bold cursor-pointer transition-all border"
                       style={{
-                        background: isActive ? sc2.bg : '#F5F5F5',
+                        background: isActive ? sc2.bg : '#FFFFFF',
                         color: isActive ? sc2.color : '#8A8A8A',
-                        border: `1px solid ${isActive ? sc2.color + '40' : 'transparent'}`,
+                        borderColor: isActive ? sc2.color + '40' : '#E5DDD0',
                         fontFamily: "'Montserrat', sans-serif",
-                        fontWeight: isActive ? 600 : 400,
+                        textTransform: 'uppercase'
                       }}
                     >
                       {sc2.label}
@@ -1471,17 +1513,20 @@ function ProductionTab() {
         todaysDeliveries.push({ order, delivery: match, isAlacarte: false });
       }
     } else {
-      // Ala-carte orders uses `deliveryDate` or falls back to today if not set/matching
+      // Ala-carte orders uses `deliveryDate` (Legacy support)
       const oDate = order.deliveryDate || order.createdAt.split('T')[0];
       if (oDate === dateStr) {
         todaysDeliveries.push({ 
           order, 
-          delivery: { id: order.id, date: oDate, status: order.status, items: order.items }, 
+          delivery: { id: order.id, date: oDate, status: order.status, items: order.items, timeSlot: order.deliveryTime }, 
           isAlacarte: true 
         });
       }
     }
   });
+
+  // Sort by time slot
+  todaysDeliveries.sort((a, b) => (a.delivery.timeSlot || '').localeCompare(b.delivery.timeSlot || ''));
 
   // Calculate aggregated meal production list
   const productionMap = new Map<string, { meal: Meal, count: number }>();
@@ -1551,6 +1596,11 @@ function ProductionTab() {
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-bold text-[#1A1A1A] text-lg">{td.order.customerName}</span>
                           <span className="text-[10px] uppercase font-bold bg-[#E5DDD0] px-2 py-0.5 rounded-full text-[#4A4A4A]">{td.isAlacarte ? 'A la Carte' : 'Paket Abonelik'}</span>
+                          {td.delivery.timeSlot && (
+                            <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
+                              ⏰ {td.delivery.timeSlot}
+                            </span>
+                          )}
                         </div>
                         <p className="text-sm text-gray-500 max-w-sm mb-1">{td.order.address} {td.order.district ? `(${td.order.district})` : ''}</p>
                         <p className="text-xs text-gray-400 mb-2">📞 {td.order.customerPhone}</p>

@@ -39,7 +39,7 @@ export default function MenuPage() {
     <div className="pt-[72px] min-h-screen" style={{ background: '#FDF6F2' }}>
 
       {/* Subscription banner — sits directly below the 72px header */}
-      {isSubscription && (
+      {isSubscription ? (
         <div className="sticky top-[72px] z-40 border-b" style={{ background: '#E8F0E8', borderColor: 'rgba(30,63,48,0.2)' }}>
           <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 py-3 flex items-center justify-between gap-4">
             {/* Left: plan name + credit counts */}
@@ -60,6 +60,26 @@ export default function MenuPage() {
                 {usedCredits}/{totalCredits}
               </span>
             </div>
+          </div>
+        </div>
+      ) : (
+        <div className="sticky top-[72px] z-40 border-b" style={{ background: '#FFFDF9', borderColor: '#C8A97A80' }}>
+          <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
+            <div>
+              <p className="font-bold text-[#1A1A1A] text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                Sipariş vermek için önce bir paket seçmelisiniz.
+              </p>
+              <p className="text-xs text-gray-500" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                Paket seçiminizi yaptıktan sonra öğünlerinizi buradan belirleyebilirsiniz.
+              </p>
+            </div>
+            <button 
+              onClick={() => window.location.href = '#packages'} 
+              className="px-5 py-2 rounded-full text-xs font-bold text-white transition-transform active:scale-95" 
+              style={{ background: green, fontFamily: "'Montserrat', sans-serif" }}
+            >
+              Paketleri İncele
+            </button>
           </div>
         </div>
       )}

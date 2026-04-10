@@ -102,14 +102,6 @@ export default function PackagesSection({ fullPage }: Props) {
           ))}
         </div>
 
-        <div className="text-center mt-10">
-          <p className="text-sm" style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
-            {t('pkg_single')}{' '}
-            <button onClick={() => dispatch({ type: 'SET_PAGE', payload: 'menu' })}
-              className="underline cursor-pointer hover:opacity-75" style={{ color: green }}>
-              {t('pkg_single_cta')}
-            </button>
-          </p>
         </div>
       </div>
     </section>
