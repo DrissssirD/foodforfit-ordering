@@ -149,7 +149,17 @@ export default function CheckoutModal() {
     const errs: Partial<Record<keyof FormData, string>> = {};
     if (form.paymentMethod === 'card') {
       if (form.cardNumber.replace(/\s/g,'').length < 16) errs.cardNumber = t('err_card');
-      if (form.cardExpiry.length < 5) errs.cardExpiry = t('err_expiry');
+      if (form.cardExpiry.length < 5) {
+        errs.cardExpiry = t('err_expiry');
+      } else {
+        const [mm, yy] = form.cardExpiry.split('/').map(Number);
+        const now = new Date();
+        const expYear = 2000 + yy;
+        const expMonth = mm;
+        if (mm < 1 || mm > 12 || expYear < now.getFullYear() || (expYear === now.getFullYear() && expMonth < now.getMonth() + 1)) {
+          errs.cardExpiry = t('err_expiry');
+        }
+      }
       if (form.cardCvv.length < 3) errs.cardCvv = t('err_cvv');
     }
     setErrors(errs);
@@ -175,8 +185,8 @@ export default function CheckoutModal() {
   const errStyle = { color: '#C0392B', fontSize: '11px', marginTop: '4px', fontFamily: "'Montserrat', sans-serif" };
 
   const finalStepNum = isSubscription ? 3 : 2;
-  const stepsList = isSubscription 
-    ? [{ n: 1, label: t('chk_info') }, { n: 2, label: 'Takvim' }, { n: 3, label: t('chk_payment') }]
+  const stepsList = isSubscription
+    ? [{ n: 1, label: t('chk_info') }, { n: 2, label: t('chk_schedule') }, { n: 3, label: t('chk_payment') }]
     : [{ n: 1, label: t('chk_info') }, { n: 2, label: t('chk_payment') }];
 
   return (
@@ -260,17 +270,17 @@ export default function CheckoutModal() {
             {step === 2 && isSubscription && (
               <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
                 <div>
-                  <label style={labelStyle} className="flex items-center gap-2"><Calendar size={16} /> Başlangıç Tarihi</label>
+                  <label style={labelStyle} className="flex items-center gap-2"><Calendar size={16} /> {t('chk_start_date')}</label>
                   <p style={{ fontSize: '12px', color: '#8A8A8A', marginBottom: '8px', fontFamily: "'Montserrat', sans-serif" }}>
-                    Paketinizin teslim edilmeye başlayacağı tarihi seçin.
+                    {t('chk_start_date_desc')}
                   </p>
-                  <input type="date" value={form.startDate} onChange={e => update('startDate', e.target.value)} style={iStyle(false)} min={new Date().toISOString().split('T')[0]} />
+                  <input type="date" value={form.startDate} onChange={e => update('startDate', e.target.value)} style={iStyle(false)} min={tomorrowStr} />
                 </div>
                 
                 <div>
-                  <label style={labelStyle}>Tercih Edilen Teslimat Saati</label>
+                  <label style={labelStyle}>{t('chk_time_pref')}</label>
                   <p style={{ fontSize: '12px', color: '#8A8A8A', marginBottom: '8px', fontFamily: "'Montserrat', sans-serif" }}>
-                    Öğünlerinizin teslim edilmesini istediğiniz saat aralığını seçin.
+                    {t('chk_time_pref_desc')}
                   </p>
                   <select value={form.timeSlot} onChange={e => update('timeSlot', e.target.value)} style={iStyle(false)}>
                     {timeSlots.map(slot => (
@@ -280,12 +290,12 @@ export default function CheckoutModal() {
                 </div>
 
                 <div>
-                  <label style={labelStyle}>Teslimat Günleri (Her Hafta)</label>
+                  <label style={labelStyle}>{t('chk_delivery_days')}</label>
                   <p style={{ fontSize: '12px', color: '#8A8A8A', marginBottom: '10px', fontFamily: "'Montserrat', sans-serif" }}>
-                    Hangi günler teslimat almak istersiniz? Seçtiğiniz ürünler bu günlere eşit dağıtılacak.
+                    {t('chk_delivery_days_desc')}
                   </p>
                   <div className="flex flex-wrap gap-2">
-                    {[{v:'1',l:'Pzt'},{v:'2',l:'Sal'},{v:'3',l:'Çar'},{v:'4',l:'Per'},{v:'5',l:'Cum'},{v:'6',l:'Cmt'},{v:'7',l:'Paz'}].map(d => {
+                    {[{v:'1',l:t('chk_day_mon')},{v:'2',l:t('chk_day_tue')},{v:'3',l:t('chk_day_wed')},{v:'4',l:t('chk_day_thu')},{v:'5',l:t('chk_day_fri')},{v:'6',l:t('chk_day_sat')},{v:'7',l:t('chk_day_sun')}].map(d => {
                       const isActive = form.deliveryDays.includes(d.v);
                       return (
                         <button key={d.v} onClick={() => {
@@ -303,7 +313,7 @@ export default function CheckoutModal() {
 
                 <div>
                   <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", marginBottom: '12px' }}>
-                    Sipariş Takvimi (Önizleme)
+                    {t('chk_schedule_preview')}
                   </h4>
                   <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
                     {plannedDeliveries.map((del, idx) => (

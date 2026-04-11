@@ -3,7 +3,7 @@ import type { CartItem, Meal, SubscriptionPlan, Page, Order, ChatConversation } 
 import type { Lang } from './i18n';
 import { meals as initialMeals, subscriptionPlans as initialPlans } from './data';
 
-const STORAGE_KEY = 'foodforfit_state_v7';
+const STORAGE_KEY = 'foodforfit_state_v8';
 
 const DEFAULT_AI_PROMPT = `You are FIT Assistant, a friendly nutrition and meal planning assistant for Food For Fit — a premium healthy meal delivery service in Turkey.
 
@@ -90,22 +90,41 @@ type Action =
 const seedOrders: Order[] = [
   {
     id: 'o1', orderNumber: 'FFF-1042', customerName: 'Ayşe Kaya', customerPhone: '+90 533 123 45 67',
-    customerEmail: 'ayse@email.com', items: [], total: 6500, deliveryType: 'teslimat',
-    address: 'Bağcılar Mah. No:12', district: 'İstanbul', deliveryDate: 'today',
+    customerEmail: 'ayse@email.com',
+    items: [
+      { meal: initialMeals[0], quantity: 4, isCreditBased: true },
+      { meal: initialMeals[5], quantity: 6, isCreditBased: true },
+      { meal: initialMeals[9], quantity: 4, isCreditBased: true },
+    ],
+    total: 6500, deliveryType: 'teslimat',
+    address: 'Bağcılar Mah. No:12', district: 'İstanbul', deliveryDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
     deliveryTime: '18:00 - 19:00', paymentMethod: 'cod', status: 'preparing',
     createdAt: new Date(Date.now() - 3600000).toISOString(), subscriptionPlan: initialPlans[0],
   },
   {
     id: 'o2', orderNumber: 'FFF-1041', customerName: 'Mehmet Demir', customerPhone: '+90 532 987 65 43',
-    customerEmail: 'mehmet@email.com', items: [], total: 1170, deliveryType: 'gelal',
-    address: '', district: '', deliveryDate: 'today',
+    customerEmail: 'mehmet@email.com',
+    items: [
+      { meal: initialMeals[5], quantity: 1, isCreditBased: false },
+      { meal: initialMeals[2], quantity: 1, isCreditBased: false },
+    ],
+    total: 1170, deliveryType: 'gelal',
+    address: '', district: '', deliveryDate: new Date(Date.now() - 86400000).toISOString().split('T')[0],
     deliveryTime: '12:00 - 13:00', paymentMethod: 'card', status: 'delivered',
     createdAt: new Date(Date.now() - 86400000).toISOString(),
   },
   {
     id: 'o3', orderNumber: 'FFF-1040', customerName: 'Elena Ivanova', customerPhone: '+90 535 444 55 66',
-    customerEmail: 'elena@email.com', items: [], total: 9450, deliveryType: 'teslimat',
-    address: 'Nişantaşı Cad. No:5', district: 'Şişli', deliveryDate: 'day-1',
+    customerEmail: 'elena@email.com',
+    items: [
+      { meal: initialMeals[0], quantity: 3, isCreditBased: true },
+      { meal: initialMeals[5], quantity: 5, isCreditBased: true },
+      { meal: initialMeals[8], quantity: 4, isCreditBased: true },
+      { meal: initialMeals[10], quantity: 5, isCreditBased: true },
+      { meal: initialMeals[13], quantity: 4, isCreditBased: true },
+    ],
+    total: 9450, deliveryType: 'teslimat',
+    address: 'Nişantaşı Cad. No:5', district: 'Şişli', deliveryDate: new Date(Date.now() + 86400000).toISOString().split('T')[0],
     deliveryTime: '10:00 - 11:00', paymentMethod: 'card', status: 'pending',
     createdAt: new Date(Date.now() - 1800000).toISOString(), subscriptionPlan: initialPlans[1],
   },

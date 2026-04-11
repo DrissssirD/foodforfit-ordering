@@ -8,7 +8,7 @@ import MealCard from './MealCard';
 const green = '#1E3F30';
 
 export default function MenuPage() {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const t = useT(state.lang);
   const [activeCategory, setActiveCategory] = useState('all');
   const [activeTags, setActiveTags] = useState<string[]>([]);
@@ -47,9 +47,9 @@ export default function MenuPage() {
               <span>📦</span>
               <span style={{ fontWeight: 700, color: green }}>{state.subscriptionPlan!.name}</span>
               <span style={{ color: '#8A8A8A' }}>|</span>
-              <span style={{ color: '#4A4A4A' }}>Sepette: <strong>{usedCredits}</strong></span>
+              <span style={{ color: '#4A4A4A' }}>{t('menu_in_cart')} <strong>{usedCredits}</strong></span>
               <span style={{ color: '#8A8A8A' }}>|</span>
-              <span style={{ color: green, fontWeight: 600 }}>Kalan: <strong>{state.creditsRemaining}</strong></span>
+              <span style={{ color: green, fontWeight: 600 }}>{t('menu_remaining')} <strong>{state.creditsRemaining}</strong></span>
             </div>
             {/* Right: mini progress bar */}
             <div className="flex items-center gap-2 flex-shrink-0">
@@ -67,18 +67,18 @@ export default function MenuPage() {
           <div className="max-w-[1400px] mx-auto px-5 sm:px-8 lg:px-12 py-4 flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
             <div>
               <p className="font-bold text-[#1A1A1A] text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                Sipariş vermek için önce bir paket seçmelisiniz.
+                {t('menu_pkg_required')}
               </p>
               <p className="text-xs text-gray-500" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                Paket seçiminizi yaptıktan sonra öğünlerinizi buradan belirleyebilirsiniz.
+                {t('menu_pkg_required_sub')}
               </p>
             </div>
-            <button 
-              onClick={() => window.location.href = '#packages'} 
-              className="px-5 py-2 rounded-full text-xs font-bold text-white transition-transform active:scale-95" 
+            <button
+              onClick={() => dispatch({ type: 'SET_PAGE', payload: 'packages' })}
+              className="px-5 py-2 rounded-full text-xs font-bold text-white transition-transform active:scale-95"
               style={{ background: green, fontFamily: "'Montserrat', sans-serif" }}
             >
-              Paketleri İncele
+              {t('menu_pkg_browse')}
             </button>
           </div>
         </div>
