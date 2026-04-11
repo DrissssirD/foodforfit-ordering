@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Menu, X, ShoppingCart, Globe, Settings } from 'lucide-react';
+import { Menu, X, ShoppingCart, Globe } from 'lucide-react';
 import { useApp, useCartItemCount } from '../store';
 import { useT } from '../i18n';
 import type { Lang } from '../i18n';
@@ -99,13 +99,7 @@ export default function Header() {
             )}
           </div>
 
-          {/* Admin */}
-          <button onClick={() => dispatch({ type: 'SET_PAGE', payload: 'admin' })}
-            className="hidden md:flex p-2.5 rounded-xl transition-colors cursor-pointer hover:opacity-75"
-            aria-label={t('nav_admin')}
-          >
-            <Settings size={18} style={{ color: '#8A8A8A' }} />
-          </button>
+
 
           {/* Cart */}
           <button onClick={() => dispatch({ type: 'TOGGLE_CART', payload: true })}
@@ -140,11 +134,7 @@ export default function Header() {
                 {link.label}
               </button>
             ))}
-            <button onClick={() => dispatch({ type: 'SET_PAGE', payload: 'admin' })}
-              className="text-left px-4 py-3 rounded-xl text-sm font-medium transition-colors cursor-pointer flex items-center gap-2"
-              style={{ background: isActive('admin') ? '#E8F0E8' : 'transparent', color: isActive('admin') ? green : '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
-              <Settings size={14} /> {t('nav_admin')}
-            </button>
+
           </nav>
         </div>
       )}
