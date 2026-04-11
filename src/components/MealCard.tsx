@@ -106,7 +106,7 @@ export default function MealCard({ meal, compact }: Props) {
             </>
           ) : (
              <span className="text-[11px] font-semibold tracking-wider uppercase px-3 py-1.5 rounded-lg border" style={{ color: '#8A8A8A', borderColor: '#E5DDD0', background: '#FAFAFA' }}>
-               Paket Seçimi Gerekli
+               {t('menu_pkg_select_required')}
              </span>
           )}
         </div>

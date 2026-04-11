@@ -102,7 +102,6 @@ export default function PackagesSection({ fullPage }: Props) {
           ))}
         </div>
 
-        </div>
       </div>
     </section>
   );

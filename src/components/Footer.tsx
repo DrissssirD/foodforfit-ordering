@@ -29,7 +29,7 @@ export default function Footer() {
             </button>
           ))}
         </div>
-        <p className="text-xs" style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>{t('footer_rights')}</p>
+        <p className="text-xs" style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>&copy; {t('footer_year')} FoodForFit.</p>
       </div>
     </footer>
   );

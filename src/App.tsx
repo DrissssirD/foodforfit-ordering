@@ -34,7 +34,14 @@ function AppContent() {
   }
 
   if (state.currentPage === 'track') {
-    return <OrderTrackingPage />;
+    return (
+      <div className="min-h-screen flex flex-col" style={{ background: '#FDF6F2' }}>
+        <Header />
+        <main className="flex-1 pt-[72px]"><OrderTrackingPage /></main>
+        <Footer />
+        <FitAssistant />
+      </div>
+    );
   }
 
   const renderPage = () => {

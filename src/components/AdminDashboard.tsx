@@ -372,8 +372,9 @@ function MealForm({ meal, onSave, onCancel }: { meal: Meal; onSave: (m: Meal) =>
           <select value={form.category} onChange={e => f('category', e.target.value)} style={{ ...iStyle, cursor: 'pointer' }}>
             <option value="kahvalti">Kahvaltı</option>
             <option value="ana">Ana Öğün</option>
-            <option value="kase">Kase</option>
-            <option value="smoothie">Smoothie</option>
+            <option value="kase">Kase & Salata</option>
+            <option value="smoothie">Smoothie & İçecek</option>
+            <option value="tatli">Tatlı</option>
           </select>
         </div>
         <div>
