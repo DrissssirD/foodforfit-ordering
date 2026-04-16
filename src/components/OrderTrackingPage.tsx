@@ -9,7 +9,7 @@ const green = '#1E3F30';
 type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
 export default function OrderTrackingPage() {
-  const { state, dispatch } = useApp();
+  const { state } = useApp();
   const t = useT(state.lang);
   const [searchInput, setSearchInput] = useState(state.trackingOrderNumber || '');
   const [foundOrder, setFoundOrder] = useState<Order | null>(null);
@@ -269,7 +269,7 @@ export default function OrderTrackingPage() {
               <div className="p-6 rounded-3xl bg-white border border-[#E5DDD0]">
                 <h3 className="font-bold text-[#1A1A1A] mb-4" style={{ fontFamily: "'Montserrat', sans-serif" }}>{t('track_schedule')}</h3>
                 <div className="flex flex-col gap-4">
-                  {foundOrder.deliveries.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()).map((del, idx) => {
+                  {foundOrder.deliveries.sort((a, b) => new Date(a.date ?? '').getTime() - new Date(b.date ?? '').getTime()).map((del, idx) => {
                     const sc = STATUS_COLORS[del.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.pending;
                     return (
                       <div key={del.id} className="p-4 rounded-xl border flex flex-col gap-2 relative overflow-hidden transition-all"
@@ -277,14 +277,14 @@ export default function OrderTrackingPage() {
                         {del.status === 'delivered' && <div className="absolute top-0 right-0 w-1.5 h-full" style={{ background: green }} />}
                         <div className="flex justify-between items-center">
                           <span className="font-bold text-sm text-[#1A1A1A]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                            {t('track_week_day')} / {idx + 1}. {t('track_day')} <span className="text-gray-400 font-normal ml-1">— {new Date(del.date).toLocaleDateString(state.lang === 'tr' ? 'tr-TR' : state.lang === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' })}</span>
+                            {t('track_week_day')} / {idx + 1}. {t('track_day')} <span className="text-gray-400 font-normal ml-1">— {new Date(del.date ?? '').toLocaleDateString(state.lang === 'tr' ? 'tr-TR' : state.lang === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' })}</span>
                           </span>
                           <span className="px-2.5 py-1 text-[10px] font-bold rounded-full uppercase" style={{ background: sc.bg, color: sc.color, fontFamily: "'Montserrat', sans-serif" }}>
                             {statusLabel(del.status as OrderStatus)}
                           </span>
                         </div>
                         <div className="text-xs text-gray-500 font-medium leading-relaxed" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                          {del.items.map(i => `${i.quantity}x ${i.meal.name}`).join(' • ')}
+                          {(del.items ?? []).map(i => `${i.quantity}x ${i.meal.name}`).join(' • ')}
                         </div>
                       </div>
                     );
