@@ -3,12 +3,12 @@ import { useState } from 'react';
 import { ArrowLeft, Package, UtensilsCrossed, ShoppingBag, Plus, Trash2, Edit3, Check, X, Eye, EyeOff, BarChart2, Bot, Settings, ImagePlus, Truck, CreditCard } from 'lucide-react';
 import { useApp } from '../store';
 import { useT, type TKey } from '../i18n';
-import type { Meal, SubscriptionPlan, Order, RescheduleRequest, TimeSlot } from '../types';
+import type { Meal, SubscriptionPlan, Order, RescheduleRequest, TimeSlot, ScheduledDelivery } from '../types';
 
 const green = '#1E3F30';
 const gold = '#C8A97A';
 
-type AdminTab = 'orders' | 'menu' | 'packages' | 'analytics' | 'ai' | 'settings' | 'production';
+type AdminTab = 'orders' | 'menu' | 'packages' | 'analytics' | 'ai' | 'settings' | 'production' | 'delivery';
 
 const STATUS_COLORS: Record<Order['status'], { bg: string; color: string; label: string }> = {
   pending:   { bg: '#FEF9C3', color: '#854D0E', label: 'Bekliyor' },
@@ -1828,6 +1828,254 @@ function ProductionTab() {
 }
 
 // ─────────────────────────────────────────
+// DELIVERY BOARD TAB
+// ─────────────────────────────────────────
+function DeliveryBoardTab() {
+  const { state, dispatch } = useApp();
+  const t = useT(state.lang);
+
+  const todayStr = new Date().toISOString().split('T')[0];
+  const [selectedDate, setSelectedDate] = useState<string>(todayStr);
+
+  const locale = state.lang === 'tr' ? 'tr-TR' : state.lang === 'ru' ? 'ru-RU' : 'en-US';
+
+  const goDay = (offset: number) => {
+    const d = new Date(selectedDate + 'T00:00:00');
+    d.setDate(d.getDate() + offset);
+    setSelectedDate(d.toISOString().split('T')[0]);
+  };
+
+  const friendlyDate = new Date(selectedDate + 'T00:00:00').toLocaleDateString(locale, {
+    weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+  });
+
+  type DeliveryEntry = {
+    orderId: string;
+    deliveryId: string;
+    mealName: string;
+    mealId?: string;
+    timeSlot: string;
+    status: ScheduledDelivery['status'];
+    customerName: string;
+    customerPhone: string;
+    address: string;
+    orderNumber: string;
+  };
+
+  const allDeliveries: DeliveryEntry[] = [];
+  state.orders.forEach(order => {
+    if (!order.deliveries?.length) return;
+    order.deliveries.forEach(del => {
+      const delDay = del.day ?? del.date ?? '';
+      if (delDay !== selectedDate) return;
+      allDeliveries.push({
+        orderId: order.id,
+        deliveryId: del.id,
+        mealName: del.mealName ?? del.items?.map(i => i.meal.name).join(', ') ?? '',
+        mealId: del.mealId,
+        timeSlot: del.timeSlot ?? '',
+        status: del.status,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        address: order.deliveryType === 'teslimat'
+          ? [order.address, order.district].filter(Boolean).join(', ')
+          : '',
+        orderNumber: order.orderNumber,
+      });
+    });
+  });
+
+  const totalCount = allDeliveries.length;
+  const deliveredCount = allDeliveries.filter(d => d.status === 'delivered').length;
+  const pendingCount = allDeliveries.filter(d => d.status !== 'delivered' && d.status !== 'cancelled').length;
+
+  const SLOT_COLORS: Record<string, string> = { morning: '#FEF9C3', lunch: '#DBEAFE', evening: '#F3E8FF' };
+  const SLOT_TEXT: Record<string, string> = { morning: '#854D0E', lunch: '#1E40AF', evening: '#6B21A8' };
+
+  const DELIVERY_STATUS: Record<ScheduledDelivery['status'], { bg: string; color: string; label: string }> = {
+    scheduled:        { bg: '#EEF2FF', color: '#4338CA', label: 'Planlandı' },
+    pending:          { bg: '#FEF9C3', color: '#854D0E', label: t('admin_delivery_pending') },
+    preparing:        { bg: '#DBEAFE', color: '#1E40AF', label: t('admin_delivery_preparing') },
+    ready:            { bg: '#D1FAE5', color: '#065F46', label: 'Hazır' },
+    out_for_delivery: { bg: '#BFDBFE', color: '#1D4ED8', label: t('admin_delivery_on_the_way') },
+    delivered:        { bg: '#E8F0E8', color: '#1E3F30', label: t('admin_delivery_delivered') },
+    cancelled:        { bg: '#FEE2E2', color: '#991B1B', label: t('admin_delivery_cancelled') },
+  };
+
+  const ACTION_BUTTONS: Array<{ status: ScheduledDelivery['status']; bg: string; color: string; label: string }> = [
+    { status: 'preparing',        bg: '#FEF9C3', color: '#854D0E', label: t('admin_delivery_preparing') },
+    { status: 'out_for_delivery', bg: '#BFDBFE', color: '#1D4ED8', label: t('admin_delivery_on_the_way') },
+    { status: 'delivered',        bg: '#D1FAE5', color: '#065F46', label: t('admin_delivery_delivered') },
+    { status: 'cancelled',        bg: '#FEE2E2', color: '#991B1B', label: t('admin_delivery_cancelled') },
+  ];
+
+  const visibleButtons = (current: ScheduledDelivery['status']) => {
+    if (current === 'delivered' || current === 'cancelled') return [];
+    if (current === 'out_for_delivery') return ACTION_BUTTONS.filter(b => b.status !== 'preparing');
+    if (current === 'preparing') return ACTION_BUTTONS.filter(b => b.status !== 'preparing');
+    return ACTION_BUTTONS;
+  };
+
+  const getMealEmojiLocal = (mealId?: string): string => {
+    const meal = mealId ? state.adminMeals.find(m => m.id === mealId) : undefined;
+    if (meal) return getMealEmoji(meal);
+    return '🍽️';
+  };
+
+  const slots: Array<{ key: 'morning' | 'lunch' | 'evening'; label: string; range: string }> = [
+    { key: 'morning', label: t('chk_slot_morning'), range: '08:00–10:00' },
+    { key: 'lunch',   label: t('chk_slot_lunch'),   range: '12:00–14:00' },
+    { key: 'evening', label: t('chk_slot_evening'), range: '18:00–20:00' },
+  ];
+
+  return (
+    <div>
+      {/* Summary counters */}
+      <div className="grid grid-cols-3 gap-3 mb-6">
+        {[
+          { label: t('admin_delivery_total'),     value: totalCount,     bg: '#F8F9FA', color: '#1A1A1A' },
+          { label: t('admin_delivery_delivered'),  value: deliveredCount, bg: '#D1FAE5', color: '#065F46' },
+          { label: t('admin_delivery_pending'),    value: pendingCount,   bg: '#FEF9C3', color: '#854D0E' },
+        ].map(({ label, value, bg, color }) => (
+          <div key={label} className="p-4 rounded-2xl text-center" style={{ background: bg, border: '1.5px solid #E5DDD0' }}>
+            <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '1.8rem', fontWeight: 800, color }}>{value}</p>
+            <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11px', fontWeight: 600, color, textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>{label}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Date navigation */}
+      <div className="flex items-center gap-3 mb-6 p-4 rounded-2xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+        <button
+          onClick={() => goDay(-1)}
+          className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer hover:opacity-70 flex-shrink-0"
+          style={{ background: '#F5F5F5', color: '#4A4A4A', fontSize: '1.1rem', fontWeight: 700 }}
+        >
+          ‹
+        </button>
+        <div className="flex-1 text-center">
+          <p style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '15px', color: '#1A1A1A', textTransform: 'capitalize' }}>
+            {friendlyDate}
+          </p>
+          {selectedDate !== todayStr && (
+            <button
+              onClick={() => setSelectedDate(todayStr)}
+              className="mt-1 px-3 py-0.5 rounded-full text-xs font-bold cursor-pointer"
+              style={{ background: '#E8F0E8', color: green, fontFamily: "'Montserrat', sans-serif" }}
+            >
+              {t('admin_delivery_today')}
+            </button>
+          )}
+        </div>
+        <button
+          onClick={() => goDay(1)}
+          className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer hover:opacity-70 flex-shrink-0"
+          style={{ background: '#F5F5F5', color: '#4A4A4A', fontSize: '1.1rem', fontWeight: 700 }}
+        >
+          ›
+        </button>
+      </div>
+
+      {/* Time slot sections */}
+      {slots.map(slot => {
+        const slotDeliveries = allDeliveries.filter(d => d.timeSlot === slot.key);
+        return (
+          <div key={slot.key} className="mb-6">
+            {/* Slot header */}
+            <div className="flex items-center gap-3 mb-3 px-1">
+              <span className="px-3 py-1.5 rounded-xl text-xs font-bold"
+                style={{ background: SLOT_COLORS[slot.key] ?? '#F5F5F5', color: SLOT_TEXT[slot.key] ?? '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
+                {slot.label}
+              </span>
+              <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', fontWeight: 600 }}>
+                {slot.range}
+              </span>
+              {slotDeliveries.length > 0 && (
+                <span className="w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold"
+                  style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>
+                  {slotDeliveries.length}
+                </span>
+              )}
+            </div>
+
+            {slotDeliveries.length === 0 ? (
+              <div className="py-4 px-5 rounded-xl" style={{ background: '#F8F9FA', border: '1.5px dashed #E5DDD0' }}>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#8A8A8A', textAlign: 'center' }}>
+                  {t('admin_delivery_empty_slot')}
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {slotDeliveries.map(del => {
+                  const sc = DELIVERY_STATUS[del.status] ?? DELIVERY_STATUS.pending;
+                  const btns = visibleButtons(del.status);
+                  return (
+                    <div key={del.deliveryId} className="p-4 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+                      {/* Top row */}
+                      <div className="flex flex-wrap items-start justify-between gap-2 mb-3">
+                        <div className="flex items-center gap-2">
+                          <span style={{ fontSize: '1.4rem' }}>{getMealEmojiLocal(del.mealId)}</span>
+                          <div>
+                            <p style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '15px', color: '#1A1A1A' }}>
+                              {del.mealName || '—'}
+                            </p>
+                            <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11px', color: '#8A8A8A' }}>
+                              {del.orderNumber}
+                            </p>
+                          </div>
+                        </div>
+                        <span className="px-2.5 py-1 rounded-full text-[11px] font-bold flex-shrink-0"
+                          style={{ background: sc.bg, color: sc.color, fontFamily: "'Montserrat', sans-serif" }}>
+                          {sc.label}
+                        </span>
+                      </div>
+
+                      {/* Customer info */}
+                      <div className="mb-3 space-y-0.5">
+                        <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', fontWeight: 600, color: '#1A1A1A' }}>
+                          {del.customerName}
+                        </p>
+                        <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#4A4A4A' }}>
+                          📞 {del.customerPhone}
+                        </p>
+                        <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#4A4A4A' }}>
+                          📍 {del.address || t('admin_delivery_no_address')}
+                        </p>
+                      </div>
+
+                      {/* Action buttons */}
+                      {btns.length > 0 && (
+                        <div className="flex flex-wrap gap-2 pt-3 border-t" style={{ borderColor: '#F0EDE8' }}>
+                          {btns.map(btn => (
+                            <button
+                              key={btn.status}
+                              onClick={() => dispatch({ type: 'UPDATE_DELIVERY_STATUS', payload: { orderId: del.orderId, deliveryId: del.deliveryId, status: btn.status } })}
+                              className="px-3 py-1.5 rounded-xl text-[11px] font-bold cursor-pointer border transition-all"
+                              style={{
+                                background: del.status === btn.status ? btn.bg : '#FFFFFF',
+                                color: del.status === btn.status ? btn.color : '#8A8A8A',
+                                borderColor: del.status === btn.status ? btn.color + '60' : '#E5DDD0',
+                                fontFamily: "'Montserrat', sans-serif",
+                              }}
+                            >
+                              {btn.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────
 // MAIN DASHBOARD
 // ─────────────────────────────────────────
 export default function AdminDashboard() {
@@ -1853,6 +2101,7 @@ export default function AdminDashboard() {
 
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
     { id: 'orders',   label: 'Siparişler',      icon: <ShoppingBag size={16} /> },
+    { id: 'delivery', label: t('admin_delivery_board'), icon: <Truck size={16} /> },
     { id: 'production', label: 'Üretim & Teslimat', icon: <Truck size={16} /> },
     { id: 'menu',     label: 'Menü Yönetimi',   icon: <UtensilsCrossed size={16} /> },
     { id: 'packages', label: 'Paket Yönetimi',  icon: <Package size={16} /> },
@@ -1962,6 +2211,7 @@ export default function AdminDashboard() {
               </div>
 
               {tab === 'orders'     && <OrdersTab />}
+              {tab === 'delivery'   && <DeliveryBoardTab />}
               {tab === 'production' && <ProductionTab />}
               {tab === 'menu'       && <MenuTab />}
               {tab === 'packages'   && <PackagesTab />}
