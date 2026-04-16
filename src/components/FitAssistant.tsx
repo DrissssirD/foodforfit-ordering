@@ -19,7 +19,7 @@ async function callClaude(
 ): Promise<string> {
   const fullPrompt = `${systemPrompt}
 
-Current menu items: ${menuContext}
+${menuContext}
 
 Always respond in ${lang === 'tr' ? 'Turkish' : lang === 'ru' ? 'Russian' : 'English'}.`;
 
@@ -79,10 +79,30 @@ export default function FitAssistant() {
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' }); }, [messages]);
 
-  const menuContext = state.adminMeals
-    .filter(m => m.available)
-    .map(m => `${m.name} (${m.calories}kcal, ₺${m.price})`)
-    .join(', ');
+  const menuContext = [
+    '=== MENU ===',
+    state.adminMeals
+      .filter(m => m.available)
+      .map(m => `${m.name} | ${m.calories}kcal | P:${m.protein}g C:${m.carbs}g F:${m.fat}g | ₺${m.price} | tags: ${m.tags.join(', ')}`)
+      .join('\n'),
+    '',
+    '=== CART ===',
+    state.cart.length > 0
+      ? state.cart.map(i => `${i.meal.name} × ${i.quantity}`).join(', ')
+      : 'Empty cart',
+    '',
+    '=== SUBSCRIPTION PLAN ===',
+    state.subscriptionPlan
+      ? `${state.subscriptionPlan.name} | ${state.subscriptionPlan.mealCount} meals | ₺${state.subscriptionPlan.price} | Credits remaining: ${state.creditsRemaining}`
+      : 'No plan selected',
+    '',
+    '=== BUSINESS INFO ===',
+    `Delivery areas: ${state.businessSettings.deliveryAreas}`,
+    `Hours: ${state.businessSettings.deliveryHours}`,
+    `Accepting orders: ${state.businessSettings.isAcceptingOrders ? 'Yes' : 'No — ' + state.businessSettings.closedMessage}`,
+    `Free delivery over: ₺${state.businessSettings.freeDeliveryThreshold}`,
+    `Delivery fee: ₺${state.businessSettings.deliveryFee}`,
+  ].join('\n');
 
   const handleClose = () => {
     // Save conversation to history if there were actual user messages
@@ -98,8 +118,8 @@ export default function FitAssistant() {
     setIsOpen(false);
   };
 
-  const handleSend = async () => {
-    const text = input.trim();
+  const handleSend = async (overrideText?: string) => {
+    const text = (overrideText !== undefined ? overrideText : input).trim();
     if (!text || isLoading) return;
     setInput('');
 
@@ -116,14 +136,13 @@ export default function FitAssistant() {
       historyRef.current.push({ role: 'assistant', content: reply });
       setMessages(prev => prev.map(m => m.id === loadingId ? { ...m, text: reply, loading: false } : m));
     } catch {
-      setMessages(prev => prev.map(m => m.id === loadingId ? { ...m, text: '⚠️ Bağlantı hatası. Tekrar deneyin.', loading: false } : m));
+      setMessages(prev => prev.map(m => m.id === loadingId ? { ...m, text: t('ai_error'), loading: false } : m));
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Use quick buttons from state, with fallback for different languages
-  const quickButtons = state.aiQuickButtons;
+  const quickButtons = [t('ai_quick_1'), t('ai_quick_2'), t('ai_quick_3')];
 
   return (
     <div className="fixed bottom-6 right-6 z-[1000]">
@@ -177,7 +196,7 @@ export default function FitAssistant() {
             {messages.length === 1 && (
               <div className="flex flex-wrap gap-2 mt-2">
                 {quickButtons.map((btn, i) => (
-                  <button key={i} onClick={() => { setInput(btn); }}
+                  <button key={i} onClick={() => handleSend(btn)}
                     className="px-3 py-2 text-xs font-medium rounded-full cursor-pointer transition-all"
                     style={{ background: '#E8F0E8', color: green, fontFamily: "'Montserrat', sans-serif", border: `1px solid ${green}33` }}
                   >
