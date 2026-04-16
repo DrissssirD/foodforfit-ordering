@@ -2,8 +2,8 @@ import { getMealGradient, getMealEmoji } from '../data';
 import { useState } from 'react';
 import { ArrowLeft, Package, UtensilsCrossed, ShoppingBag, Plus, Trash2, Edit3, Check, X, Eye, EyeOff, BarChart2, Bot, Settings, ImagePlus, Truck, CreditCard } from 'lucide-react';
 import { useApp } from '../store';
-import { useT } from '../i18n';
-import type { Meal, SubscriptionPlan, Order } from '../types';
+import { useT, type TKey } from '../i18n';
+import type { Meal, SubscriptionPlan, Order, RescheduleRequest, TimeSlot } from '../types';
 
 const green = '#1E3F30';
 const gold = '#C8A97A';
@@ -16,6 +16,11 @@ const STATUS_COLORS: Record<Order['status'], { bg: string; color: string; label:
   ready:     { bg: '#D1FAE5', color: '#065F46', label: 'Hazır' },
   delivered: { bg: '#E8F0E8', color: '#1E3F30', label: 'Teslim Edildi' },
   cancelled: { bg: '#FEE2E2', color: '#991B1B', label: 'İptal' },
+};
+
+const dayKeyMap: Record<number, TKey> = {
+  0: 'chk_day_sun', 1: 'chk_day_mon', 2: 'chk_day_tue',
+  3: 'chk_day_wed', 4: 'chk_day_thu', 5: 'chk_day_fri', 6: 'chk_day_sat',
 };
 
 // ─────────────────────────────────────────
@@ -76,12 +81,149 @@ function AdminLogin({ onLogin, adminPassword }: { onLogin: () => void; adminPass
 }
 
 // ─────────────────────────────────────────
+// RESCHEDULE REQUESTS SUB-TAB
+// ─────────────────────────────────────────
+function RescheduleRequestsSubTab() {
+  const { state, dispatch } = useApp();
+  const t = useT(state.lang);
+
+  const requests = [...state.rescheduleRequests].sort(
+    (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+  );
+
+  const formatSlot = (slot: string): string => {
+    if (slot === 'morning') return t('chk_slot_morning');
+    if (slot === 'lunch') return t('chk_slot_lunch');
+    if (slot === 'evening') return t('chk_slot_evening');
+    return slot;
+  };
+
+  const formatDay = (day: string): string => {
+    const d = new Date(day + 'T00:00:00');
+    const key = dayKeyMap[d.getDay()];
+    return `${key ? t(key) : day} ${d.getDate()}`;
+  };
+
+  const approve = (req: RescheduleRequest) => {
+    dispatch({ type: 'UPDATE_RESCHEDULE_REQUEST', payload: { id: req.id, status: 'approved' } });
+    dispatch({ type: 'UPDATE_ORDER_DELIVERY', payload: {
+      orderId: req.orderId,
+      deliveryId: req.deliveryId,
+      day: req.requestedDay,
+      timeSlot: req.requestedTimeSlot as TimeSlot,
+    }});
+  };
+
+  const reject = (req: RescheduleRequest) => {
+    dispatch({ type: 'UPDATE_RESCHEDULE_REQUEST', payload: { id: req.id, status: 'rejected' } });
+  };
+
+  if (requests.length === 0) {
+    return (
+      <div className="text-center py-16">
+        <p style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>{t('admin_reschedule_empty')}</p>
+      </div>
+    );
+  }
+
+  const statusColors: Record<RescheduleRequest['status'], { bg: string; color: string; label: string }> = {
+    pending:  { bg: '#FEF9C3', color: '#854D0E', label: 'Bekliyor' },
+    approved: { bg: '#D1FAE5', color: '#065F46', label: 'Onaylandı' },
+    rejected: { bg: '#FEE2E2', color: '#991B1B', label: 'Reddedildi' },
+  };
+
+  return (
+    <div className="space-y-4">
+      {requests.map(req => {
+        const sc = statusColors[req.status];
+        return (
+          <div key={req.id} className="p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
+            <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+              <div>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '14px', color: '#1A1A1A' }}>
+                  {req.customerName}
+                </p>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A' }}>
+                  {req.customerPhone}
+                </p>
+              </div>
+              <span className="px-2.5 py-1 rounded-full text-[11px] font-bold"
+                style={{ background: sc.bg, color: sc.color, fontFamily: "'Montserrat', sans-serif" }}>
+                {sc.label}
+              </span>
+            </div>
+
+            <p style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '13px', color: green, marginBottom: '8px' }}>
+              🍽️ {req.mealName}
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="p-3 rounded-lg" style={{ background: '#FDF6F2', border: '1px solid #E5DDD0' }}>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '10px', fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  {t('admin_reschedule_original')}
+                </p>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#1A1A1A', fontWeight: 600 }}>
+                  {formatDay(req.originalDay)}
+                </p>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#4A4A4A' }}>
+                  {formatSlot(req.originalTimeSlot)}
+                </p>
+              </div>
+              <div className="p-3 rounded-lg" style={{ background: '#EBF5EB', border: '1px solid #B7DDB7' }}>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '10px', fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', marginBottom: '4px' }}>
+                  {t('admin_reschedule_requested')}
+                </p>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#1A1A1A', fontWeight: 600 }}>
+                  {formatDay(req.requestedDay)}
+                </p>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#4A4A4A' }}>
+                  {formatSlot(req.requestedTimeSlot)}
+                </p>
+              </div>
+            </div>
+
+            {req.reason && (
+              <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#4A4A4A', fontStyle: 'italic', marginBottom: '12px' }}>
+                "{req.reason}"
+              </p>
+            )}
+
+            {req.status === 'pending' && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => approve(req)}
+                  className="flex-1 py-2 rounded-xl text-[12px] font-bold cursor-pointer"
+                  style={{ background: '#D1FAE5', color: '#065F46', fontFamily: "'Montserrat', sans-serif" }}
+                >
+                  {t('admin_reschedule_approve')}
+                </button>
+                <button
+                  onClick={() => reject(req)}
+                  className="flex-1 py-2 rounded-xl text-[12px] font-bold cursor-pointer"
+                  style={{ background: '#FEE2E2', color: '#991B1B', fontFamily: "'Montserrat', sans-serif" }}
+                >
+                  {t('admin_reschedule_reject')}
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────
 // ORDERS TAB
 // ─────────────────────────────────────────
 function OrdersTab() {
   const { state, dispatch } = useApp();
+  const t = useT(state.lang);
+  const [subTab, setSubTab] = useState<'orders' | 'reschedule'>('orders');
   const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'cancelled'>('active');
   const statuses: Order['status'][] = ['pending', 'preparing', 'ready', 'delivered', 'cancelled'];
+
+  const pendingReschedules = state.rescheduleRequests.filter(r => r.status === 'pending').length;
 
   const filteredOrders = state.orders.filter(o => {
     if (filter === 'all') return true;
@@ -93,39 +235,73 @@ function OrdersTab() {
 
   return (
     <div>
+      {/* Sub-tab switcher */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.2rem', color: '#1A1A1A' }}>
-          Siparişler
-        </h2>
-        
-        {/* Simple Filters */}
-        <div className="flex bg-[#F5F5F5] p-1 rounded-xl border border-[#E5DDD0]">
-          {(['active', 'completed', 'cancelled', 'all'] as const).map(f => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all capitalize"
-              style={{
-                background: filter === f ? '#FFFFFF' : 'transparent',
-                color: filter === f ? green : '#8A8A8A',
-                boxShadow: filter === f ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
-                fontFamily: "'Montserrat', sans-serif"
-              }}
-            >
-              {f === 'active' ? 'Aktif' : f === 'completed' ? 'Tamamlanan' : f === 'cancelled' ? 'İptal' : 'Tümü'}
-            </button>
-          ))}
+        <div className="flex gap-2">
+          <button
+            onClick={() => setSubTab('orders')}
+            className="px-4 py-2 rounded-xl text-sm font-bold cursor-pointer transition-all"
+            style={{
+              background: subTab === 'orders' ? green : '#F5F5F5',
+              color: subTab === 'orders' ? '#fff' : '#8A8A8A',
+              fontFamily: "'Montserrat', sans-serif",
+            }}
+          >
+            {t('admin_orders_tab')}
+          </button>
+          <button
+            onClick={() => setSubTab('reschedule')}
+            className="px-4 py-2 rounded-xl text-sm font-bold cursor-pointer transition-all flex items-center gap-2"
+            style={{
+              background: subTab === 'reschedule' ? green : '#F5F5F5',
+              color: subTab === 'reschedule' ? '#fff' : '#8A8A8A',
+              fontFamily: "'Montserrat', sans-serif",
+            }}
+          >
+            {t('admin_reschedule_tab')}
+            {pendingReschedules > 0 && (
+              <span className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center"
+                style={{ background: subTab === 'reschedule' ? '#C8A97A' : '#C0392B', color: '#fff' }}>
+                {pendingReschedules}
+              </span>
+            )}
+          </button>
         </div>
+
+        {/* Order filters — only visible in orders sub-tab */}
+        {subTab === 'orders' && (
+          <div className="flex bg-[#F5F5F5] p-1 rounded-xl border border-[#E5DDD0]">
+            {(['active', 'completed', 'cancelled', 'all'] as const).map(f => (
+              <button
+                key={f}
+                onClick={() => setFilter(f)}
+                className="px-4 py-1.5 rounded-lg text-xs font-bold transition-all capitalize"
+                style={{
+                  background: filter === f ? '#FFFFFF' : 'transparent',
+                  color: filter === f ? green : '#8A8A8A',
+                  boxShadow: filter === f ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                  fontFamily: "'Montserrat', sans-serif"
+                }}
+              >
+                {f === 'active' ? 'Aktif' : f === 'completed' ? 'Tamamlanan' : f === 'cancelled' ? 'İptal' : 'Tümü'}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
-      {filteredOrders.length === 0 && (
+      {/* Reschedule sub-tab */}
+      {subTab === 'reschedule' && <RescheduleRequestsSubTab />}
+
+      {/* Orders list */}
+      {subTab === 'orders' && filteredOrders.length === 0 && (
         <div className="text-center py-16">
           <ShoppingBag size={36} style={{ color: '#E5DDD0', margin: '0 auto 12px' }} />
           <p style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>Sipariş bulunamadı</p>
         </div>
       )}
 
-      <div className="space-y-4">
+      {subTab === 'orders' && <div className="space-y-4">
         {filteredOrders.map(order => {
           const sc = STATUS_COLORS[order.status];
           return (
@@ -263,7 +439,7 @@ function OrdersTab() {
             </div>
           );
         })}
-      </div>
+      </div>}
     </div>
   );
 }

@@ -1,22 +1,58 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useApp } from '../store';
-import { useT } from '../i18n';
-import type { Order } from '../types';
+import { useT, type TKey } from '../i18n';
+import type { Order, RescheduleRequest, TimeSlot } from '../types';
 import { ChevronRight } from 'lucide-react';
 
 const green = '#1E3F30';
 
 type OrderStatus = 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled';
 
+const dayKeyMap: Record<number, TKey> = {
+  0: 'chk_day_sun', 1: 'chk_day_mon', 2: 'chk_day_tue',
+  3: 'chk_day_wed', 4: 'chk_day_thu', 5: 'chk_day_fri', 6: 'chk_day_sat',
+};
+
+const isTypedSlot = (s: unknown): s is TimeSlot =>
+  s === 'morning' || s === 'lunch' || s === 'evening';
+
 export default function OrderTrackingPage() {
-  const { state } = useApp();
+  const { state, dispatch } = useApp();
   const t = useT(state.lang);
   const [searchInput, setSearchInput] = useState(state.trackingOrderNumber || '');
   const [foundOrder, setFoundOrder] = useState<Order | null>(null);
   const [searchAttempted, setSearchAttempted] = useState(false);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
-
   const [trackingOrderNumber, setTrackingOrderNumber] = useState<string | null>(state.trackingOrderNumber);
+
+  // Reschedule state
+  const [openRescheduleId, setOpenRescheduleId] = useState<string | null>(null);
+  const [rescheduleDay, setRescheduleDay] = useState('');
+  const [rescheduleSlot, setRescheduleSlot] = useState<TimeSlot | ''>('');
+  const [rescheduleReason, setRescheduleReason] = useState('');
+  const [rescheduleError, setRescheduleError] = useState('');
+  const [successDeliveryIds, setSuccessDeliveryIds] = useState<Set<string>>(new Set());
+
+  const sevenDays = useMemo(() => {
+    const days: Date[] = [];
+    const base = new Date();
+    for (let i = 1; i <= 7; i++) {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }, []);
+
+  const localeLang = state.lang === 'tr' ? 'tr-TR' : state.lang === 'ru' ? 'ru-RU' : 'en-US';
+  const formatDayOption = (d: Date) =>
+    `${t(dayKeyMap[d.getDay()])} ${d.getDate()} ${d.toLocaleDateString(localeLang, { month: 'short' })}`;
+
+  const slotLabel = (slot: string) =>
+    slot === 'morning' ? t('chk_slot_morning')
+    : slot === 'lunch' ? t('chk_slot_lunch')
+    : slot === 'evening' ? t('chk_slot_evening')
+    : slot;
 
   const STATUS_COLORS: Record<OrderStatus, { bg: string; color: string }> = {
     pending: { bg: '#F5ECD7', color: '#C8A97A' },
@@ -81,11 +117,58 @@ export default function OrderTrackingPage() {
     const statusOrder: OrderStatus[] = ['pending', 'preparing', 'ready', 'delivered'];
     const stepIndex = statusOrder.indexOf(stepKey);
     const currentIndex = statusOrder.indexOf(foundOrder.status as OrderStatus);
-
     if (foundOrder.status === 'delivered') return 'completed';
     if (stepIndex < currentIndex) return 'completed';
     if (stepIndex === currentIndex) return 'active';
     return 'upcoming';
+  };
+
+  const openReschedule = (deliveryId: string) => {
+    setOpenRescheduleId(deliveryId);
+    setRescheduleDay('');
+    setRescheduleSlot('');
+    setRescheduleReason('');
+    setRescheduleError('');
+  };
+
+  const submitReschedule = (order: Order, delId: string, currentDay: string, currentSlot: TimeSlot, mealName: string) => {
+    if (!rescheduleDay || !rescheduleSlot) {
+      setRescheduleError(t('track_reschedule_invalid'));
+      return;
+    }
+    if (rescheduleDay === currentDay && rescheduleSlot === currentSlot) {
+      setRescheduleError(t('track_reschedule_invalid'));
+      return;
+    }
+    const req: RescheduleRequest = {
+      id: `rr-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+      orderId: order.id,
+      deliveryId: delId,
+      mealName,
+      customerName: order.customerName,
+      customerPhone: order.customerPhone,
+      originalDay: currentDay,
+      originalTimeSlot: currentSlot,
+      requestedDay: rescheduleDay,
+      requestedTimeSlot: rescheduleSlot,
+      reason: rescheduleReason,
+      status: 'pending',
+      createdAt: new Date().toISOString(),
+    };
+    dispatch({ type: 'ADD_RESCHEDULE_REQUEST', payload: req });
+    setSuccessDeliveryIds(prev => new Set([...prev, delId]));
+    setOpenRescheduleId(null);
+    setRescheduleDay('');
+    setRescheduleSlot('');
+    setRescheduleReason('');
+    setRescheduleError('');
+  };
+
+  const iStyle = {
+    width: '100%', padding: '8px 12px', borderRadius: '10px',
+    border: '1.5px solid #E5DDD0', background: '#FFFFFF',
+    fontSize: '13px', fontFamily: "'Montserrat', sans-serif",
+    color: '#1A1A1A', outline: 'none',
   };
 
   return (
@@ -119,7 +202,7 @@ export default function OrderTrackingPage() {
                   >
                     <div>
                       <div className="font-bold text-sm" style={{ color: '#1A1A1A' }}>{order.orderNumber}</div>
-                      <div className="text-xs text-gray-400 mt-1">{new Date(order.createdAt).toLocaleDateString(state.lang === 'tr' ? 'tr-TR' : state.lang === 'ru' ? 'ru-RU' : 'en-US')}</div>
+                      <div className="text-xs text-gray-400 mt-1">{new Date(order.createdAt).toLocaleDateString(localeLang)}</div>
                     </div>
                     <div className="flex items-center gap-3">
                       <span className="text-[10px] font-bold px-2.5 py-1 rounded-full uppercase" style={{
@@ -146,15 +229,10 @@ export default function OrderTrackingPage() {
               onChange={e => setSearchInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleSearch()}
               style={{
-                flex: 1,
-                padding: '14px 20px',
-                borderRadius: '16px',
-                border: '1.5px solid #E5DDD0',
-                background: '#FFFFFF',
-                fontSize: '15px',
-                fontFamily: "'Montserrat', sans-serif",
-                color: '#1A1A1A',
-                outline: 'none',
+                flex: 1, padding: '14px 20px', borderRadius: '16px',
+                border: '1.5px solid #E5DDD0', background: '#FFFFFF',
+                fontSize: '15px', fontFamily: "'Montserrat', sans-serif",
+                color: '#1A1A1A', outline: 'none',
               }}
             />
             <button
@@ -213,7 +291,7 @@ export default function OrderTrackingPage() {
                 </div>
                 <div className="flex justify-between items-center text-sm">
                   <span className="text-gray-500">{t('track_date')}</span>
-                  <span className="text-gray-900">{new Date(foundOrder.createdAt).toLocaleString(state.lang === 'tr' ? 'tr-TR' : state.lang === 'ru' ? 'ru-RU' : 'en-US')}</span>
+                  <span className="text-gray-900">{new Date(foundOrder.createdAt).toLocaleString(localeLang)}</span>
                 </div>
               </div>
             </div>
@@ -226,7 +304,6 @@ export default function OrderTrackingPage() {
                     const status = getStepStatus(step.key);
                     const isCompleted = status === 'completed';
                     const isActive = status === 'active';
-
                     return (
                       <div key={step.key} className="flex items-center gap-4 relative z-10">
                         <div
@@ -246,8 +323,6 @@ export default function OrderTrackingPage() {
                           </p>
                           {isActive && <p className="text-[11px] text-[#1E3F30] font-semibold animate-pulse">{t('track_processing')}</p>}
                         </div>
-
-                        {/* Vertical line between steps */}
                         {i < steps.length - 1 && (
                           <div className="absolute left-6 top-10 w-0.5 h-10 -z-10" style={{ background: isCompleted ? green : '#F0EDE8' }} />
                         )}
@@ -255,10 +330,9 @@ export default function OrderTrackingPage() {
                     );
                   })}
                 </div>
-
                 <div className="mt-8 pt-6 border-t border-[#F0EDE8] text-center">
                   <p className="text-[11px] text-gray-400 font-medium">
-                    {t('track_last_update')} {lastUpdate ? lastUpdate.toLocaleTimeString(state.lang === 'tr' ? 'tr-TR' : state.lang === 'ru' ? 'ru-RU' : 'en-US') : t('track_loading')}
+                    {t('track_last_update')} {lastUpdate ? lastUpdate.toLocaleTimeString(localeLang) : t('track_loading')}
                   </p>
                 </div>
               </div>
@@ -269,26 +343,168 @@ export default function OrderTrackingPage() {
               <div className="p-6 rounded-3xl bg-white border border-[#E5DDD0]">
                 <h3 className="font-bold text-[#1A1A1A] mb-4" style={{ fontFamily: "'Montserrat', sans-serif" }}>{t('track_schedule')}</h3>
                 <div className="flex flex-col gap-4">
-                  {foundOrder.deliveries.sort((a, b) => new Date(a.date ?? '').getTime() - new Date(b.date ?? '').getTime()).map((del, idx) => {
-                    const sc = STATUS_COLORS[del.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.pending;
-                    return (
-                      <div key={del.id} className="p-4 rounded-xl border flex flex-col gap-2 relative overflow-hidden transition-all"
-                        style={{ background: del.status === 'delivered' ? '#F4FBF6' : '#FFFFFF', borderColor: del.status === 'delivered' ? `${green}40` : '#F0EDE8' }}>
-                        {del.status === 'delivered' && <div className="absolute top-0 right-0 w-1.5 h-full" style={{ background: green }} />}
-                        <div className="flex justify-between items-center">
-                          <span className="font-bold text-sm text-[#1A1A1A]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                            {t('track_week_day')} / {idx + 1}. {t('track_day')} <span className="text-gray-400 font-normal ml-1">— {new Date(del.date ?? '').toLocaleDateString(state.lang === 'tr' ? 'tr-TR' : state.lang === 'ru' ? 'ru-RU' : 'en-US', { day: 'numeric', month: 'short' })}</span>
-                          </span>
-                          <span className="px-2.5 py-1 text-[10px] font-bold rounded-full uppercase" style={{ background: sc.bg, color: sc.color, fontFamily: "'Montserrat', sans-serif" }}>
-                            {statusLabel(del.status as OrderStatus)}
-                          </span>
+                  {foundOrder.deliveries
+                    .slice()
+                    .sort((a, b) => new Date(a.date ?? a.day ?? '').getTime() - new Date(b.date ?? b.day ?? '').getTime())
+                    .map((del, idx) => {
+                      const sc = STATUS_COLORS[del.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.pending;
+                      const deliveryDate = del.date ?? del.day ?? '';
+                      const deliveryItems = (del.items && del.items.length > 0)
+                        ? del.items.map(i => `${i.quantity}x ${i.meal.name}`).join(' • ')
+                        : del.mealName ?? '—';
+                      const canReschedule = del.status === 'scheduled' && isTypedSlot(del.timeSlot);
+                      const currentDay = del.day ?? del.date ?? '';
+                      const currentSlot = del.timeSlot as TimeSlot;
+                      const mealDisplayName = del.mealName ?? (del.items?.[0]?.meal.name ?? '');
+
+                      return (
+                        <div key={del.id}>
+                          <div className="p-4 rounded-xl border flex flex-col gap-2 relative overflow-hidden transition-all"
+                            style={{ background: del.status === 'delivered' ? '#F4FBF6' : '#FFFFFF', borderColor: del.status === 'delivered' ? `${green}40` : '#F0EDE8' }}>
+                            {del.status === 'delivered' && <div className="absolute top-0 right-0 w-1.5 h-full" style={{ background: green }} />}
+
+                            <div className="flex justify-between items-center">
+                              <span className="font-bold text-sm text-[#1A1A1A]" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                                {t('track_week_day')} / {idx + 1}. {t('track_day')}
+                                <span className="text-gray-400 font-normal ml-1">
+                                  — {deliveryDate ? new Date(deliveryDate).toLocaleDateString(localeLang, { day: 'numeric', month: 'short' }) : ''}
+                                </span>
+                              </span>
+                              <div className="flex items-center gap-2 flex-shrink-0">
+                                {isTypedSlot(del.timeSlot) && (
+                                  <span className="px-2 py-0.5 text-[10px] font-bold rounded-full" style={{ background: '#E8F0E8', color: green, fontFamily: "'Montserrat', sans-serif" }}>
+                                    {slotLabel(del.timeSlot)}
+                                  </span>
+                                )}
+                                <span className="px-2.5 py-1 text-[10px] font-bold rounded-full uppercase" style={{ background: sc.bg, color: sc.color, fontFamily: "'Montserrat', sans-serif" }}>
+                                  {statusLabel(del.status as OrderStatus)}
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="text-xs text-gray-500 font-medium leading-relaxed" style={{ fontFamily: "'Montserrat', sans-serif" }}>
+                              {deliveryItems}
+                            </div>
+
+                            {/* Reschedule button */}
+                            {canReschedule && !successDeliveryIds.has(del.id) && (
+                              <div className="pt-1">
+                                <button
+                                  onClick={() => openRescheduleId === del.id ? setOpenRescheduleId(null) : openReschedule(del.id)}
+                                  className="text-xs font-bold px-3 py-1.5 rounded-lg cursor-pointer transition-all"
+                                  style={{
+                                    background: openRescheduleId === del.id ? '#E5DDD0' : '#F5ECD7',
+                                    color: '#C8A97A',
+                                    fontFamily: "'Montserrat', sans-serif",
+                                    border: '1px solid #E5DDD0',
+                                  }}
+                                >
+                                  📅 {t('track_reschedule_btn')}
+                                </button>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Success banner */}
+                          {successDeliveryIds.has(del.id) && (
+                            <div className="mt-2 px-4 py-3 rounded-xl" style={{ background: '#E8F5E9', border: '1px solid #A5D6A7' }}>
+                              <p style={{ color: '#1B5E20', fontSize: '12px', fontWeight: 600, fontFamily: "'Montserrat', sans-serif" }}>
+                                ✓ {t('track_reschedule_success')}
+                              </p>
+                            </div>
+                          )}
+
+                          {/* Reschedule panel */}
+                          {openRescheduleId === del.id && (
+                            <div className="mt-2 p-4 rounded-xl" style={{ background: '#F5F0EB', border: '1.5px solid #E5DDD0' }}>
+                              {/* Current delivery info */}
+                              <p style={{ fontSize: '11px', fontWeight: 700, color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif", textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: '8px' }}>
+                                {t('track_reschedule_current')}
+                              </p>
+                              <p style={{ fontSize: '13px', color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", fontWeight: 600, marginBottom: '16px' }}>
+                                {mealDisplayName && `${mealDisplayName} — `}
+                                {deliveryDate ? new Date(deliveryDate).toLocaleDateString(localeLang, { weekday: 'short', day: 'numeric', month: 'short' }) : deliveryDate}
+                                {isTypedSlot(del.timeSlot) ? ` — ${slotLabel(del.timeSlot)}` : ''}
+                              </p>
+
+                              {/* New day */}
+                              <label style={{ fontSize: '11px', fontWeight: 700, color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif", textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '6px' }}>
+                                {t('track_reschedule_new_day')}
+                              </label>
+                              <select
+                                value={rescheduleDay}
+                                onChange={e => { setRescheduleDay(e.target.value); setRescheduleError(''); }}
+                                style={{ ...iStyle, marginBottom: '12px', cursor: 'pointer' }}
+                              >
+                                <option value="" disabled>─</option>
+                                {sevenDays.map(d => {
+                                  const ds = d.toISOString().split('T')[0];
+                                  return <option key={ds} value={ds}>{formatDayOption(d)}</option>;
+                                })}
+                              </select>
+
+                              {/* New time slot */}
+                              <label style={{ fontSize: '11px', fontWeight: 700, color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif", textTransform: 'uppercase', letterSpacing: '0.04em', display: 'block', marginBottom: '6px' }}>
+                                {t('track_reschedule_new_time')}
+                              </label>
+                              <div style={{ display: 'flex', gap: '6px', marginBottom: '12px' }}>
+                                {(['morning', 'lunch', 'evening'] as const).map(slot => {
+                                  const isActive = rescheduleSlot === slot;
+                                  return (
+                                    <button key={slot}
+                                      onClick={() => { setRescheduleSlot(slot); setRescheduleError(''); }}
+                                      style={{
+                                        flex: 1, padding: '8px 4px', fontSize: '11px', fontWeight: 700,
+                                        borderRadius: '8px', cursor: 'pointer',
+                                        background: isActive ? green : '#FFFFFF',
+                                        color: isActive ? '#fff' : '#4A4A4A',
+                                        border: `1.5px solid ${isActive ? green : '#E5DDD0'}`,
+                                        fontFamily: "'Montserrat', sans-serif",
+                                      }}>
+                                      {slotLabel(slot)}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Reason */}
+                              <input
+                                type="text"
+                                value={rescheduleReason}
+                                onChange={e => setRescheduleReason(e.target.value)}
+                                placeholder={t('track_reschedule_reason')}
+                                style={{ ...iStyle, marginBottom: '12px' }}
+                              />
+
+                              {/* Error */}
+                              {rescheduleError && (
+                                <p style={{ color: '#C0392B', fontSize: '12px', fontFamily: "'Montserrat', sans-serif", fontWeight: 600, marginBottom: '10px' }}>
+                                  ⚠ {rescheduleError}
+                                </p>
+                              )}
+
+                              {/* Action buttons */}
+                              <div style={{ display: 'flex', gap: '8px' }}>
+                                <button
+                                  onClick={() => submitReschedule(foundOrder, del.id, currentDay, currentSlot, mealDisplayName)}
+                                  className="flex-1 py-2.5 rounded-xl text-sm font-bold cursor-pointer transition-all active:scale-95"
+                                  style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
+                                >
+                                  {t('track_reschedule_submit')}
+                                </button>
+                                <button
+                                  onClick={() => setOpenRescheduleId(null)}
+                                  className="px-5 py-2.5 rounded-xl text-sm font-medium cursor-pointer transition-all"
+                                  style={{ background: '#E5DDD0', color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}
+                                >
+                                  {t('track_reschedule_cancel')}
+                                </button>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                        <div className="text-xs text-gray-500 font-medium leading-relaxed" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                          {(del.items ?? []).map(i => `${i.quantity}x ${i.meal.name}`).join(' • ')}
-                        </div>
-                      </div>
-                    );
-                  })}
+                      );
+                    })}
                 </div>
               </div>
             )}
