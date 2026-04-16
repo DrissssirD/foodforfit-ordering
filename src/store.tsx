@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
-import type { CartItem, Meal, SubscriptionPlan, Page, Order, ChatConversation, AgentSession, AgentMessage, RescheduleRequest } from './types';
+import type { CartItem, Meal, SubscriptionPlan, Page, Order, ChatConversation, AgentSession, AgentMessage, RescheduleRequest, TimeSlot } from './types';
 import type { Lang } from './i18n';
 import { meals as initialMeals, subscriptionPlans as initialPlans } from './data';
 
@@ -106,7 +106,8 @@ type Action =
   | { type: 'RESET_AGENT' }
   // ── Reschedule actions ─────────────────────────────────────────────────────
   | { type: 'ADD_RESCHEDULE_REQUEST'; payload: RescheduleRequest }
-  | { type: 'UPDATE_RESCHEDULE_REQUEST'; payload: { id: string; status: RescheduleRequest['status'] } };
+  | { type: 'UPDATE_RESCHEDULE_REQUEST'; payload: { id: string; status: RescheduleRequest['status'] } }
+  | { type: 'UPDATE_ORDER_DELIVERY'; payload: { orderId: string; deliveryId: string; day: string; timeSlot: TimeSlot } };
 
 // Seed orders for demo
 const seedOrders: Order[] = [
@@ -386,6 +387,17 @@ function reducer(state: AppState, action: Action): AppState {
         rescheduleRequests: state.rescheduleRequests.map(r =>
           r.id === action.payload.id ? { ...r, status: action.payload.status } : r
         ),
+      };
+    case 'UPDATE_ORDER_DELIVERY':
+      return {
+        ...state,
+        orders: state.orders.map(o => o.id === action.payload.orderId ? {
+          ...o,
+          deliveries: o.deliveries?.map(d => d.id === action.payload.deliveryId
+            ? { ...d, day: action.payload.day, date: action.payload.day, timeSlot: action.payload.timeSlot }
+            : d
+          ),
+        } : o),
       };
 
     default:
