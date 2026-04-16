@@ -320,14 +320,14 @@ export default function CheckoutModal() {
                        <div key={idx} className="p-4 bg-white rounded-xl border border-[#E5DDD0] flex flex-col gap-2">
                          <div className="flex justify-between items-center">
                            <span className="font-bold text-[#1A1A1A] text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                             {new Date(del.date).toLocaleDateString('tr-TR', { weekday: 'long', month: 'short', day: 'numeric' })}
+                             {new Date(del.date ?? '').toLocaleDateString('tr-TR', { weekday: 'long', month: 'short', day: 'numeric' })}
                            </span>
                            <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full uppercase" style={{ fontFamily: "'Montserrat', sans-serif" }}>
                              {del.timeSlot}
                            </span>
                          </div>
                          <span className="text-gray-500 text-xs" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                           {del.items.map(i => `${i.quantity}x ${i.meal.name}`).join(' • ')}
+                           {(del.items ?? []).map(i => `${i.quantity}x ${i.meal.name}`).join(' • ')}
                          </span>
                        </div>
                     ))}
