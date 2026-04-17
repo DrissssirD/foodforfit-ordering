@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
-import type { CartItem, Meal, SubscriptionPlan, Page, Order, ChatConversation } from './types';
+import type { CartItem, Meal, SubscriptionPlan, Page, Order, ChatConversation, AgentSession, AgentMessage, RescheduleRequest, TimeSlot, ScheduledDelivery } from './types';
 import type { Lang } from './i18n';
 import { meals as initialMeals, subscriptionPlans as initialPlans } from './data';
 
@@ -15,6 +15,14 @@ Context about our service:
 - We have breakfast, main meals, bowls, and smoothies
 
 Be warm, concise, and helpful. Help users choose packages, understand meals, or learn about delivery. Keep responses under 150 words. Use relevant emoji occasionally.`;
+
+const initialAgentSession: AgentSession = {
+  isOpen: false,
+  messages: [],
+  phase: 'greeting',
+  discoveredGoals: [],
+  suggestedPlanId: null,
+};
 
 interface AppState {
   currentPage: Page;
@@ -51,6 +59,8 @@ interface AppState {
     closedMessage: string;
   };
   myOrderNumbers: string[];
+  agentSession: AgentSession;
+  rescheduleRequests: RescheduleRequest[];
 }
 
 type Action =
@@ -84,7 +94,21 @@ type Action =
   | { type: 'UPDATE_BUSINESS_SETTINGS'; payload: Partial<AppState['businessSettings']> }
   | { type: 'ADD_CHAT_CONVERSATION'; payload: ChatConversation }
   | { type: 'SYNC_STATE'; payload: AppState }
-  | { type: 'UPDATE_ORDER_DELIVERY_STATUS'; payload: { orderId: string; deliveryId: string; status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' } };
+  | { type: 'UPDATE_ORDER_DELIVERY_STATUS'; payload: { orderId: string; deliveryId: string; status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' } }
+  // ── Agent actions ──────────────────────────────────────────────────────────
+  | { type: 'OPEN_AGENT' }
+  | { type: 'CLOSE_AGENT' }
+  | { type: 'ADD_AGENT_MESSAGE'; payload: AgentMessage }
+  | { type: 'UPDATE_AGENT_MESSAGE'; payload: { id: string; updates: Partial<AgentMessage> } }
+  | { type: 'SET_AGENT_PHASE'; payload: AgentSession['phase'] }
+  | { type: 'SET_AGENT_GOALS'; payload: string[] }
+  | { type: 'SET_AGENT_SUGGESTED_PLAN'; payload: string | null }
+  | { type: 'RESET_AGENT' }
+  // ── Reschedule actions ─────────────────────────────────────────────────────
+  | { type: 'ADD_RESCHEDULE_REQUEST'; payload: RescheduleRequest }
+  | { type: 'UPDATE_RESCHEDULE_REQUEST'; payload: { id: string; status: RescheduleRequest['status'] } }
+  | { type: 'UPDATE_ORDER_DELIVERY'; payload: { orderId: string; deliveryId: string; day: string; timeSlot: TimeSlot } }
+  | { type: 'UPDATE_DELIVERY_STATUS'; payload: { orderId: string; deliveryId: string; status: ScheduledDelivery['status'] } };
 
 // Seed orders for demo
 const seedOrders: Order[] = [
@@ -165,6 +189,8 @@ const initialState: AppState = {
     closedMessage: 'Şu an sipariş almıyoruz. Yakında tekrar açılacağız.',
   },
   myOrderNumbers: [],
+  agentSession: initialAgentSession,
+  rescheduleRequests: [],
 };
 
 // Merge with localStorage if exists
@@ -180,7 +206,13 @@ function getInitialState(): AppState {
       cartOpen: false,
       checkoutOpen: false,
       mobileMenuOpen: false,
-      isAdmin: parsed.isAdmin || false, 
+      isAdmin: parsed.isAdmin || false,
+      // Always reset agent open state on page load
+      agentSession: {
+        ...initialAgentSession,
+        ...(parsed.agentSession ?? {}),
+        isOpen: false,
+      },
     };
   } catch {
     return initialState;
@@ -303,6 +335,83 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, chatHistory: [action.payload, ...state.chatHistory] };
     case 'SYNC_STATE':
       return { ...state, ...action.payload };
+
+    // ── Agent cases ──────────────────────────────────────────────────────────
+    case 'OPEN_AGENT':
+      return {
+        ...state,
+        agentSession: {
+          ...state.agentSession,
+          isOpen: true,
+          // Reset phase to greeting only when starting a fresh session
+          phase: state.agentSession.messages.length === 0 ? 'greeting' : state.agentSession.phase,
+        },
+      };
+    case 'CLOSE_AGENT':
+      return { ...state, agentSession: { ...state.agentSession, isOpen: false } };
+    case 'ADD_AGENT_MESSAGE':
+      return {
+        ...state,
+        agentSession: {
+          ...state.agentSession,
+          messages: [...state.agentSession.messages, action.payload],
+        },
+      };
+    case 'UPDATE_AGENT_MESSAGE':
+      return {
+        ...state,
+        agentSession: {
+          ...state.agentSession,
+          messages: state.agentSession.messages.map(m =>
+            m.id === action.payload.id ? { ...m, ...action.payload.updates } : m
+          ),
+        },
+      };
+    case 'SET_AGENT_PHASE':
+      return { ...state, agentSession: { ...state.agentSession, phase: action.payload } };
+    case 'SET_AGENT_GOALS':
+      return { ...state, agentSession: { ...state.agentSession, discoveredGoals: action.payload } };
+    case 'SET_AGENT_SUGGESTED_PLAN':
+      return { ...state, agentSession: { ...state.agentSession, suggestedPlanId: action.payload } };
+    case 'RESET_AGENT':
+      return {
+        ...state,
+        agentSession: { ...initialAgentSession, isOpen: state.agentSession.isOpen },
+      };
+
+    // ── Reschedule cases ─────────────────────────────────────────────────────
+    case 'ADD_RESCHEDULE_REQUEST':
+      return { ...state, rescheduleRequests: [...state.rescheduleRequests, action.payload] };
+    case 'UPDATE_RESCHEDULE_REQUEST':
+      return {
+        ...state,
+        rescheduleRequests: state.rescheduleRequests.map(r =>
+          r.id === action.payload.id ? { ...r, status: action.payload.status } : r
+        ),
+      };
+    case 'UPDATE_ORDER_DELIVERY':
+      return {
+        ...state,
+        orders: state.orders.map(o => o.id === action.payload.orderId ? {
+          ...o,
+          deliveries: o.deliveries?.map(d => d.id === action.payload.deliveryId
+            ? { ...d, day: action.payload.day, date: action.payload.day, timeSlot: action.payload.timeSlot }
+            : d
+          ),
+        } : o),
+      };
+    case 'UPDATE_DELIVERY_STATUS':
+      return {
+        ...state,
+        orders: state.orders.map(o => o.id === action.payload.orderId ? {
+          ...o,
+          deliveries: o.deliveries?.map(d => d.id === action.payload.deliveryId
+            ? { ...d, status: action.payload.status }
+            : d
+          ),
+        } : o),
+      };
+
     default:
       return state;
   }
