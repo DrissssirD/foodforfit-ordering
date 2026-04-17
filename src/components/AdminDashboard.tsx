@@ -10,12 +10,12 @@ const gold = '#C8A97A';
 
 type AdminTab = 'orders' | 'menu' | 'packages' | 'analytics' | 'ai' | 'settings' | 'production' | 'delivery';
 
-const STATUS_COLORS: Record<Order['status'], { bg: string; color: string; label: string }> = {
-  pending:   { bg: '#FEF9C3', color: '#854D0E', label: 'Bekliyor' },
-  preparing: { bg: '#DBEAFE', color: '#1E40AF', label: 'Hazırlanıyor' },
-  ready:     { bg: '#D1FAE5', color: '#065F46', label: 'Hazır' },
-  delivered: { bg: '#E8F0E8', color: '#1E3F30', label: 'Teslim Edildi' },
-  cancelled: { bg: '#FEE2E2', color: '#991B1B', label: 'İptal' },
+const STATUS_BG_COLOR: Record<Order['status'], { bg: string; color: string }> = {
+  pending:   { bg: '#FEF9C3', color: '#854D0E' },
+  preparing: { bg: '#DBEAFE', color: '#1E40AF' },
+  ready:     { bg: '#D1FAE5', color: '#065F46' },
+  delivered: { bg: '#E8F0E8', color: '#1E3F30' },
+  cancelled: { bg: '#FEE2E2', color: '#991B1B' },
 };
 
 const dayKeyMap: Record<number, TKey> = {
@@ -27,6 +27,8 @@ const dayKeyMap: Record<number, TKey> = {
 // LOGIN SCREEN
 // ─────────────────────────────────────────
 function AdminLogin({ onLogin, adminPassword }: { onLogin: () => void; adminPassword: string }) {
+  const { state } = useApp();
+  const t = useT(state.lang);
   const [pass, setPass] = useState('');
   const [error, setError] = useState(false);
   const [show, setShow] = useState(false);
@@ -43,14 +45,14 @@ function AdminLogin({ onLogin, adminPassword }: { onLogin: () => void; adminPass
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ background: green }}>
             <span style={{ color: gold, fontFamily: "'Montserrat', sans-serif", fontWeight: 800, fontSize: '1.5rem' }}>F</span>
           </div>
-          <h1 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.4rem', color: '#1A1A1A' }}>Yönetim Paneli</h1>
-          <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#8A8A8A', marginTop: '4px' }}>FoodForFit işletme girişi</p>
+          <h1 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.4rem', color: '#1A1A1A' }}>{t('admin_title')}</h1>
+          <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#8A8A8A', marginTop: '4px' }}>{t('admin_login_subtitle')}</p>
         </div>
         <div className="space-y-4">
           <div className="relative">
             <input
               type={show ? 'text' : 'password'}
-              placeholder="Şifre"
+              placeholder={t('admin_pass')}
               value={pass}
               onChange={e => { setPass(e.target.value); setError(false); }}
               onKeyDown={e => e.key === 'Enter' && attempt()}
@@ -62,18 +64,18 @@ function AdminLogin({ onLogin, adminPassword }: { onLogin: () => void; adminPass
             </button>
           </div>
           {error && (
-            <p style={{ color: '#C0392B', fontSize: '12px', fontFamily: "'Montserrat', sans-serif" }}>Yanlış şifre. Tekrar deneyin.</p>
+            <p style={{ color: '#C0392B', fontSize: '12px', fontFamily: "'Montserrat', sans-serif" }}>{t('admin_wrong_pass')}</p>
           )}
           <button
             onClick={attempt}
             className="w-full py-3 rounded-full text-sm font-semibold cursor-pointer"
             style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
           >
-            Giriş Yap
+            {t('admin_login_btn')}
           </button>
         </div>
         <p className="text-center mt-4 text-xs" style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
-          Demo şifre: admin123
+          {t('admin_login_demo')}
         </p>
       </div>
     </div>
@@ -126,10 +128,15 @@ function RescheduleRequestsSubTab() {
     );
   }
 
-  const statusColors: Record<RescheduleRequest['status'], { bg: string; color: string; label: string }> = {
-    pending:  { bg: '#FEF9C3', color: '#854D0E', label: 'Bekliyor' },
-    approved: { bg: '#D1FAE5', color: '#065F46', label: 'Onaylandı' },
-    rejected: { bg: '#FEE2E2', color: '#991B1B', label: 'Reddedildi' },
+  const rescheduleStatusLabel = (s: RescheduleRequest['status']) => {
+    if (s === 'approved') return state.lang === 'en' ? 'Approved' : state.lang === 'ru' ? 'Одобрено' : 'Onaylandı';
+    if (s === 'rejected') return state.lang === 'en' ? 'Rejected' : state.lang === 'ru' ? 'Отклонено' : 'Reddedildi';
+    return t('admin_status_pending');
+  };
+  const statusColors: Record<RescheduleRequest['status'], { bg: string; color: string }> = {
+    pending:  { bg: '#FEF9C3', color: '#854D0E' },
+    approved: { bg: '#D1FAE5', color: '#065F46' },
+    rejected: { bg: '#FEE2E2', color: '#991B1B' },
   };
 
   return (
@@ -149,7 +156,7 @@ function RescheduleRequestsSubTab() {
               </div>
               <span className="px-2.5 py-1 rounded-full text-[11px] font-bold"
                 style={{ background: sc.bg, color: sc.color, fontFamily: "'Montserrat', sans-serif" }}>
-                {sc.label}
+                {rescheduleStatusLabel(req.status)}
               </span>
             </div>
 
@@ -222,6 +229,13 @@ function OrdersTab() {
   const [subTab, setSubTab] = useState<'orders' | 'reschedule'>('orders');
   const [filter, setFilter] = useState<'all' | 'active' | 'completed' | 'cancelled'>('active');
   const statuses: Order['status'][] = ['pending', 'preparing', 'ready', 'delivered', 'cancelled'];
+  const statusLabel = (s: Order['status']) => {
+    if (s === 'pending')   return t('admin_status_pending');
+    if (s === 'preparing') return t('admin_status_preparing');
+    if (s === 'ready')     return t('admin_status_ready');
+    if (s === 'delivered') return t('admin_status_delivered');
+    return t('admin_status_cancelled');
+  };
 
   const pendingReschedules = state.rescheduleRequests.filter(r => r.status === 'pending').length;
 
@@ -283,7 +297,7 @@ function OrdersTab() {
                   fontFamily: "'Montserrat', sans-serif"
                 }}
               >
-                {f === 'active' ? 'Aktif' : f === 'completed' ? 'Tamamlanan' : f === 'cancelled' ? 'İptal' : 'Tümü'}
+                {f === 'active' ? t('admin_filter_active') : f === 'completed' ? t('admin_filter_completed') : f === 'cancelled' ? t('admin_filter_cancelled') : t('admin_filter_all')}
               </button>
             ))}
           </div>
@@ -297,13 +311,13 @@ function OrdersTab() {
       {subTab === 'orders' && filteredOrders.length === 0 && (
         <div className="text-center py-16">
           <ShoppingBag size={36} style={{ color: '#E5DDD0', margin: '0 auto 12px' }} />
-          <p style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>Sipariş bulunamadı</p>
+          <p style={{ color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>{t('admin_no_orders')}</p>
         </div>
       )}
 
       {subTab === 'orders' && <div className="space-y-4">
         {filteredOrders.map(order => {
-          const sc = STATUS_COLORS[order.status];
+          const sc = STATUS_BG_COLOR[order.status];
           return (
             <div key={order.id} className="p-5 rounded-xl transition-all hover:shadow-md" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
               {/* Top row: order number + status + total */}
@@ -314,7 +328,7 @@ function OrdersTab() {
                   </span>
                   <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider"
                     style={{ background: sc.bg, color: sc.color, fontFamily: "'Montserrat', sans-serif" }}>
-                    {sc.label}
+                    {statusLabel(order.status)}
                   </span>
                   {order.subscriptionPlan && (
                     <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-green-50 text-green-700 border border-green-100 flex items-center gap-1">
@@ -338,13 +352,13 @@ function OrdersTab() {
                   {order.customerName}
                 </p>
                 <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
-                  <span className="font-bold">📍 Adres:</span> {order.deliveryType === 'teslimat' ? (
+                  <span className="font-bold">📍 {t('admin_address_label')}:</span> {order.deliveryType === 'teslimat' ? (
                     <>
-                      {order.address || 'Adres belirtilmedi'}
+                      {order.address || t('admin_delivery_no_address')}
                       {order.district ? ` (${order.district})` : ''}
                     </>
                   ) : (
-                    <span className="text-amber-600 font-bold italic">Gel-Al (Mağazadan Teslim)</span>
+                    <span className="text-amber-600 font-bold italic">{t('admin_pickup_store')}</span>
                   )}
                 </p>
                 <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
@@ -358,13 +372,13 @@ function OrdersTab() {
                 
                 <div className="flex flex-wrap items-center gap-4 mt-2">
                   <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: gold, fontWeight: 700 }}>
-                    ⏰ {order.deliveryTime || 'Tercihen: ' + (order.deliveries?.[0]?.timeSlot || 'Belirtilmedi')}
+                    ⏰ {order.deliveryTime || t('admin_pref_prefix') + (order.deliveries?.[0]?.timeSlot || t('admin_not_specified'))}
                   </p>
                   <div className="flex items-center gap-2" style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: green, fontWeight: 600 }}>
                     {order.paymentMethod === 'cod' ? (
-                      <><Truck size={14} /> Kapıda Ödeme (COD)</>
+                      <><Truck size={14} /> {t('admin_payment_cod_label')}</>
                     ) : (
-                      <><CreditCard size={14} /> Kartla Ödeme (Online)</>
+                      <><CreditCard size={14} /> {t('admin_payment_card_label')}</>
                     )}
                   </div>
                 </div>
@@ -373,7 +387,7 @@ function OrdersTab() {
               {order.notes && (
                 <div className="mt-3 p-3 rounded-lg" style={{ background: '#FDF6F2', border: '1px solid #E5DDD0' }}>
                   <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11px', fontWeight: 700, color: '#8A8A8A', textTransform: 'uppercase', marginBottom: '4px' }}>
-                    Müşteri Notu
+                    {t('admin_customer_note')}
                   </p>
                   <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A', fontStyle: 'italic' }}>
                     "{order.notes}"
@@ -385,11 +399,11 @@ function OrdersTab() {
               <div className="mt-4 p-4 rounded-xl" style={{ background: '#F8F9FA', border: '1.5px solid #E5DDD0' }}>
                 <div className="flex justify-between items-center mb-3">
                   <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11px', fontWeight: 800, color: '#1A1A1A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                    📦 Paket Detayları
+                    📦 {t('admin_pkg_details')}
                   </p>
                   {order.deliveries && (
                     <span className="text-[10px] font-bold text-gray-400">
-                      {order.deliveries.length} Teslimat Günü
+                      {order.deliveries.length} {t('admin_delivery_days_label')}
                     </span>
                   )}
                 </div>
@@ -402,7 +416,7 @@ function OrdersTab() {
                         </span>
                         <div>
                           <p className="font-bold text-[#1A1A1A]">{item.meal.name}</p>
-                          {item.isCreditBased && <p className="text-[10px] text-green-700 font-semibold">Paket Kredisi</p>}
+                          {item.isCreditBased && <p className="text-[10px] text-green-700 font-semibold">{t('admin_pkg_credit')}</p>}
                         </div>
                       </div>
                       <span className="font-bold text-[#1A1A1A]">
@@ -416,7 +430,7 @@ function OrdersTab() {
               {/* Status buttons */}
               <div className="flex flex-wrap gap-2 mt-4 pt-4 border-t" style={{ borderColor: '#F0EDE8' }}>
                 {statuses.map(s => {
-                  const sc2 = STATUS_COLORS[s];
+                  const sc2 = STATUS_BG_COLOR[s];
                   const isActive = order.status === s;
                   return (
                     <button
@@ -431,7 +445,7 @@ function OrdersTab() {
                         textTransform: 'uppercase'
                       }}
                     >
-                      {sc2.label}
+                      {statusLabel(s)}
                     </button>
                   );
                 })}
@@ -453,6 +467,8 @@ const emptyMeal = (): Meal => ({
 });
 
 function MealForm({ meal, onSave, onCancel }: { meal: Meal; onSave: (m: Meal) => void; onCancel: () => void }) {
+  const { state } = useApp();
+  const t = useT(state.lang);
   const [form, setForm] = useState<Meal>({ ...meal });
   const [imageError, setImageError] = useState('');
   const [imageLoading, setImageLoading] = useState(false);
@@ -472,11 +488,11 @@ function MealForm({ meal, onSave, onCancel }: { meal: Meal; onSave: (m: Meal) =>
   const handleImageFile = (file: File) => {
     setImageError('');
     if (file.size > 2 * 1024 * 1024) {
-      setImageError('Dosya 2MB\'dan küçük olmalıdır');
+      setImageError(t('admin_meal_form_image_err_size'));
       return;
     }
     if (!file.type.startsWith('image/')) {
-      setImageError('Sadece görsel dosyası yükleyebilirsiniz');
+      setImageError(t('admin_meal_form_image_err_type'));
       return;
     }
     setImageLoading(true);
@@ -493,15 +509,15 @@ function MealForm({ meal, onSave, onCancel }: { meal: Meal; onSave: (m: Meal) =>
     <div className="p-5 rounded-2xl mb-4" style={{ background: '#F5ECD7', border: '1.5px solid #C8A97A' }}>
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="sm:col-span-2">
-          <label style={lStyle}>Öğün Adı</label>
-          <input value={form.name} onChange={e => f('name', e.target.value)} style={iStyle} placeholder="Öğün adını girin" />
+          <label style={lStyle}>{t('admin_meal_form_name')}</label>
+          <input value={form.name} onChange={e => f('name', e.target.value)} style={iStyle} placeholder={t('admin_meal_form_name_placeholder')} />
         </div>
         <div className="sm:col-span-2">
-          <label style={lStyle}>Açıklama</label>
-          <textarea value={form.description} onChange={e => f('description', e.target.value)} rows={2} style={{ ...iStyle, resize: 'none' }} placeholder="Kısa açıklama" />
+          <label style={lStyle}>{t('admin_meal_form_desc')}</label>
+          <textarea value={form.description} onChange={e => f('description', e.target.value)} rows={2} style={{ ...iStyle, resize: 'none' }} placeholder={t('admin_meal_form_desc_placeholder')} />
         </div>
         <div className="sm:col-span-2">
-          <label style={lStyle}>Öğün Görseli</label>
+          <label style={lStyle}>{t('admin_meal_form_image')}</label>
           {form.imageUrl ? (
             <div>
               <img src={form.imageUrl} alt="Preview" style={{ maxHeight: '160px', borderRadius: '12px', objectFit: 'cover', width: '100%' }} />
@@ -512,7 +528,7 @@ function MealForm({ meal, onSave, onCancel }: { meal: Meal; onSave: (m: Meal) =>
                   className="px-3 py-1.5 text-xs font-medium rounded-full cursor-pointer"
                   style={{ background: '#E5DDD0', color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}
                 >
-                  Görseli Değiştir
+                  {t('admin_meal_form_image_change')}
                 </button>
                 <button
                   type="button"
@@ -520,7 +536,7 @@ function MealForm({ meal, onSave, onCancel }: { meal: Meal; onSave: (m: Meal) =>
                   className="px-3 py-1.5 text-xs font-medium cursor-pointer"
                   style={{ color: '#C0392B', fontFamily: "'Montserrat', sans-serif" }}
                 >
-                  Görseli Kaldır
+                  {t('admin_meal_form_image_remove')}
                 </button>
               </div>
             </div>
@@ -535,63 +551,63 @@ function MealForm({ meal, onSave, onCancel }: { meal: Meal; onSave: (m: Meal) =>
                 style={{ borderColor: dragActive ? '#1E3F30' : '#E5DDD0', transition: 'all 0.3s ease' }}
               >
                 <ImagePlus size={32} style={{ margin: '0 auto 12px', color: '#8A8A8A' }} />
-                <p style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 600, color: '#4A4A4A', marginBottom: '4px' }}>Görsel yüklemek için tıklayın veya sürükleyin</p>
-                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A' }}>PNG, JPG, WEBP — Maks 2MB</p>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 600, color: '#4A4A4A', marginBottom: '4px' }}>{t('admin_meal_form_image_drag')}</p>
+                <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A' }}>{t('admin_meal_form_image_hint')}</p>
               </div>
-              {imageLoading && <p style={{ marginTop: '8px', fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#8A8A8A' }}>Yükleniyor...</p>}
+              {imageLoading && <p style={{ marginTop: '8px', fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#8A8A8A' }}>{t('admin_meal_form_image_loading')}</p>}
               {imageError && <p style={{ marginTop: '8px', fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#C0392B' }}>{imageError}</p>}
             </div>
           )}
         </div>
         <div>
-          <label style={lStyle}>Kategori</label>
+          <label style={lStyle}>{t('admin_meal_form_category')}</label>
           <select value={form.category} onChange={e => f('category', e.target.value)} style={{ ...iStyle, cursor: 'pointer' }}>
-            <option value="kahvalti">Kahvaltı</option>
-            <option value="ana">Ana Öğün</option>
-            <option value="kase">Kase & Salata</option>
-            <option value="smoothie">Smoothie & İçecek</option>
-            <option value="tatli">Tatlı</option>
+            <option value="kahvalti">{t('admin_cat_kahvalti')}</option>
+            <option value="ana">{t('admin_cat_ana')}</option>
+            <option value="kase">{t('admin_cat_kase')}</option>
+            <option value="smoothie">{t('admin_cat_smoothie')}</option>
+            <option value="tatli">{t('admin_cat_tatli')}</option>
           </select>
         </div>
         <div>
-          <label style={lStyle}>Fiyat (₺)</label>
+          <label style={lStyle}>{t('admin_meal_form_price')}</label>
           <input type="number" value={form.price} onChange={e => f('price', +e.target.value)} style={iStyle} min={0} />
         </div>
         <div>
-          <label style={lStyle}>Kalori (kcal)</label>
+          <label style={lStyle}>{t('admin_meal_form_calories')}</label>
           <input type="number" value={form.calories} onChange={e => f('calories', +e.target.value)} style={iStyle} min={0} />
         </div>
         <div>
-          <label style={lStyle}>Protein (g)</label>
+          <label style={lStyle}>{t('admin_meal_form_protein')}</label>
           <input type="number" value={form.protein} onChange={e => f('protein', +e.target.value)} style={iStyle} min={0} />
         </div>
         <div>
-          <label style={lStyle}>Karbonhidrat (g)</label>
+          <label style={lStyle}>{t('admin_meal_form_carbs')}</label>
           <input type="number" value={form.carbs} onChange={e => f('carbs', +e.target.value)} style={iStyle} min={0} />
         </div>
         <div>
-          <label style={lStyle}>Yağ (g)</label>
+          <label style={lStyle}>{t('admin_meal_form_fat')}</label>
           <input type="number" value={form.fat} onChange={e => f('fat', +e.target.value)} style={iStyle} min={0} />
         </div>
         <div className="flex items-center gap-5 pt-2">
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.available} onChange={e => f('available', e.target.checked)} style={{ accentColor: green }} />
-            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>Aktif</span>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>{t('admin_meal_form_available')}</span>
           </label>
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={form.featured} onChange={e => f('featured', e.target.checked)} style={{ accentColor: green }} />
-            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>Öne Çıkan</span>
+            <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>{t('admin_meal_form_featured')}</span>
           </label>
         </div>
       </div>
       <div className="flex gap-3 mt-5">
         <button onClick={() => onSave(form)} className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold cursor-pointer"
           style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>
-          <Check size={14} /> Kaydet
+          <Check size={14} /> {t('admin_save')}
         </button>
         <button onClick={onCancel} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer"
           style={{ background: '#E5DDD0', color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
-          <X size={14} /> İptal
+          <X size={14} /> {t('admin_cancel')}
         </button>
       </div>
     </div>
@@ -603,6 +619,7 @@ function MealForm({ meal, onSave, onCancel }: { meal: Meal; onSave: (m: Meal) =>
 // ─────────────────────────────────────────
 function MenuTab() {
   const { state, dispatch } = useApp();
+  const t = useT(state.lang);
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
@@ -610,14 +627,14 @@ function MenuTab() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.2rem', color: '#1A1A1A' }}>
-          Menü Yönetimi
+          {t('admin_meal_management')}
         </h2>
         <button
           onClick={() => { setAdding(true); setEditing(null); }}
           className="flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold cursor-pointer"
           style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
         >
-          <Plus size={14} /> Yeni Öğün Ekle
+          <Plus size={14} /> {t('admin_meal_add')}
         </button>
       </div>
 
@@ -667,7 +684,7 @@ function MenuTab() {
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className="px-2.5 py-1 rounded-lg text-xs font-medium"
                     style={{ background: meal.available ? '#E8F0E8' : '#F5F5F5', color: meal.available ? green : '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
-                    {meal.available ? 'Aktif' : 'Gizli'}
+                    {meal.available ? t('admin_active_label') : t('admin_hidden_label')}
                   </span>
                   <button onClick={() => { setEditing(meal.id); setAdding(false); }}
                     className="w-8 h-8 rounded-xl flex items-center justify-center cursor-pointer hover:opacity-70"
@@ -675,7 +692,7 @@ function MenuTab() {
                     <Edit3 size={14} />
                   </button>
                   <button
-                    onClick={() => { if (window.confirm('Bu öğünü silmek istediğinizden emin misiniz?')) dispatch({ type: 'DELETE_MEAL', payload: meal.id }); }}
+                    onClick={() => { if (window.confirm(t('admin_meal_confirm_delete'))) dispatch({ type: 'DELETE_MEAL', payload: meal.id }); }}
                     className="w-8 h-8 rounded-xl flex items-center justify-center cursor-pointer hover:opacity-70"
                     style={{ background: '#FEE2E2', color: '#C0392B' }}>
                     <Trash2 size={14} />
@@ -699,6 +716,7 @@ const emptyPlan = (): SubscriptionPlan => ({
 
 function PlanForm({ plan, onSave, onCancel }: { plan: SubscriptionPlan; onSave: (p: SubscriptionPlan) => void; onCancel: () => void }) {
   const { state } = useApp();
+  const t = useT(state.lang);
   const [form, setForm] = useState<SubscriptionPlan>({ ...plan, features: [...plan.features], allowedMealIds: plan.allowedMealIds || [] });
   const f = (k: keyof SubscriptionPlan, v: any) => setForm(p => ({ ...p, [k]: v }));
 
@@ -716,34 +734,34 @@ function PlanForm({ plan, onSave, onCancel }: { plan: SubscriptionPlan; onSave: 
     <div className="p-5 rounded-2xl mb-4" style={{ background: '#F5ECD7', border: '1.5px solid #C8A97A' }}>
       <div className="grid grid-cols-2 gap-4">
         <div className="col-span-2">
-          <label style={lStyle}>Paket Adı</label>
-          <input value={form.name} onChange={e => f('name', e.target.value)} style={iStyle} placeholder="Ör: 14 Öğün Paketi" />
+          <label style={lStyle}>{t('admin_plan_form_name')}</label>
+          <input value={form.name} onChange={e => f('name', e.target.value)} style={iStyle} placeholder={t('admin_plan_form_name_placeholder')} />
         </div>
         <div>
-          <label style={lStyle}>Öğün Sayısı</label>
+          <label style={lStyle}>{t('admin_plan_form_meal_count')}</label>
           <input type="number" value={form.mealCount} onChange={e => f('mealCount', +e.target.value)} style={iStyle} min={1} />
         </div>
         <div>
-          <label style={lStyle}>Fiyat (₺)</label>
+          <label style={lStyle}>{t('admin_plan_form_price')}</label>
           <input type="number" value={form.price} onChange={e => f('price', +e.target.value)} style={iStyle} min={0} />
         </div>
         <div>
-          <label style={lStyle}>Öğün Başı Fiyat (₺)</label>
+          <label style={lStyle}>{t('admin_plan_form_price_per_meal')}</label>
           <input type="number" value={form.pricePerMeal} onChange={e => f('pricePerMeal', +e.target.value)} style={iStyle} min={0} />
         </div>
         <div>
-          <label style={lStyle}>Rozet (opsiyonel)</label>
+          <label style={lStyle}>{t('admin_plan_form_badge')}</label>
           <input value={form.badge ?? ''} onChange={e => f('badge', e.target.value || undefined)} style={iStyle} placeholder="Ör: En Popüler" />
         </div>
         <div className="col-span-2">
-          <label style={lStyle}>Özellikler</label>
+          <label style={lStyle}>{t('admin_plan_form_features')}</label>
           {form.features.map((feat, i) => (
             <div key={i} className="flex gap-2 mb-2">
               <input
                 value={feat}
                 onChange={e => { const nf = [...form.features]; nf[i] = e.target.value; f('features', nf); }}
                 style={{ ...iStyle, flex: 1 }}
-                placeholder={`Özellik ${i + 1}`}
+                placeholder={`${t('admin_plan_form_feature_placeholder')} ${i + 1}`}
               />
               <button
                 onClick={() => f('features', form.features.filter((_, j) => j !== i))}
@@ -759,13 +777,13 @@ function PlanForm({ plan, onSave, onCancel }: { plan: SubscriptionPlan; onSave: 
             className="px-3 py-2 rounded-xl text-xs font-medium cursor-pointer mt-1"
             style={{ background: '#E8F0E8', color: green, fontFamily: "'Montserrat', sans-serif" }}
           >
-            + Özellik Ekle
+            {t('admin_plan_form_add_feature')}
           </button>
         </div>
         <div className="col-span-2">
-          <label style={lStyle}>Paket İçeriği (İzin Verilen Öğünler)</label>
+          <label style={lStyle}>{t('admin_plan_form_allowed_meals')}</label>
           <p style={{ fontSize: '11px', color: '#8A8A8A', marginBottom: '10px' }}>
-            Boş bırakılırsa tüm menü öğeleri seçilebilir olur.
+            {t('admin_plan_form_allowed_desc')}
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-48 overflow-y-auto p-2 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
             {state.adminMeals.map(meal => {
@@ -794,7 +812,7 @@ function PlanForm({ plan, onSave, onCancel }: { plan: SubscriptionPlan; onSave: 
           <label className="flex items-center gap-2 cursor-pointer">
             <input type="checkbox" checked={!!form.popular} onChange={e => f('popular', e.target.checked)} style={{ accentColor: green }} />
             <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
-              Popüler (koyu arka plan)
+              {t('admin_plan_form_popular')}
             </span>
           </label>
         </div>
@@ -802,11 +820,11 @@ function PlanForm({ plan, onSave, onCancel }: { plan: SubscriptionPlan; onSave: 
       <div className="flex gap-3 mt-5">
         <button onClick={() => onSave(form)} className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold cursor-pointer"
           style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>
-          <Check size={14} /> Kaydet
+          <Check size={14} /> {t('admin_save')}
         </button>
         <button onClick={onCancel} className="flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer"
           style={{ background: '#E5DDD0', color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
-          <X size={14} /> İptal
+          <X size={14} /> {t('admin_cancel')}
         </button>
       </div>
     </div>
@@ -818,6 +836,7 @@ function PlanForm({ plan, onSave, onCancel }: { plan: SubscriptionPlan; onSave: 
 // ─────────────────────────────────────────
 function PackagesTab() {
   const { state, dispatch } = useApp();
+  const t = useT(state.lang);
   const [editing, setEditing] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
 
@@ -825,14 +844,14 @@ function PackagesTab() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.2rem', color: '#1A1A1A' }}>
-          Paket Yönetimi
+          {t('admin_plan_management')}
         </h2>
         <button
           onClick={() => { setAdding(true); setEditing(null); }}
           className="flex items-center gap-2 px-4 py-2.5 rounded-full text-sm font-semibold cursor-pointer"
           style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
         >
-          <Plus size={14} /> Yeni Paket Ekle
+          <Plus size={14} /> {t('admin_plan_add')}
         </button>
       </div>
 
@@ -864,7 +883,7 @@ function PackagesTab() {
                       {plan.name}
                     </p>
                     <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: plan.popular ? 'rgba(255,255,255,0.7)' : '#8A8A8A', marginTop: '3px' }}>
-                      {plan.mealCount} öğün · ₺{plan.price.toLocaleString('tr-TR')} · ₺{plan.pricePerMeal}/öğün
+                      {plan.mealCount} {t('admin_plan_meals_count')} · ₺{plan.price.toLocaleString('tr-TR')} · ₺{plan.pricePerMeal}/{t('admin_plan_meals_count')}
                     </p>
                     {plan.badge && (
                       <span className="inline-block mt-2 px-2.5 py-1 rounded-full text-xs font-semibold"
@@ -890,7 +909,7 @@ function PackagesTab() {
                       <Edit3 size={14} />
                     </button>
                     <button
-                      onClick={() => { if (window.confirm('Bu paketi silmek istediğinizden emin misiniz?')) dispatch({ type: 'DELETE_PLAN', payload: plan.id }); }}
+                      onClick={() => { if (window.confirm(t('admin_plan_confirm_delete'))) dispatch({ type: 'DELETE_PLAN', payload: plan.id }); }}
                       className="w-8 h-8 rounded-xl flex items-center justify-center cursor-pointer hover:opacity-70"
                       style={{ background: plan.popular ? 'rgba(255,100,100,0.2)' : '#FEE2E2', color: '#C0392B' }}>
                       <Trash2 size={14} />
@@ -911,6 +930,14 @@ function PackagesTab() {
 // ─────────────────────────────────────────
 function AnalyticsTab() {
   const { state } = useApp();
+  const t = useT(state.lang);
+  const statusLabel = (s: Order['status']) => {
+    if (s === 'pending')   return t('admin_status_pending');
+    if (s === 'preparing') return t('admin_status_preparing');
+    if (s === 'ready')     return t('admin_status_ready');
+    if (s === 'delivered') return t('admin_status_delivered');
+    return t('admin_status_cancelled');
+  };
 
   // Calculate metrics
   const totalRevenue = state.orders
@@ -985,21 +1012,21 @@ function AnalyticsTab() {
   return (
     <div>
       <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.2rem', color: '#1A1A1A', marginBottom: '20px' }}>
-        Analitik Özeti
+        {t('admin_analytics_title')}
       </h2>
 
       {/* ROW 1 - 4 Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-        <StatCard title="Toplam Ciro" value={`₺${totalRevenue.toLocaleString('tr-TR')}`} icon={() => null} accentColor={green} />
+        <StatCard title={t('admin_analytics_revenue')} value={`₺${totalRevenue.toLocaleString('tr-TR')}`} icon={() => null} accentColor={green} />
         <div>
           <StatCard
-            title="Toplam Sipariş"
+            title={t('admin_stat_orders')}
             value={totalOrders}
-            subtext={pendingCount > 0 ? `${pendingCount} bekliyor` : undefined}
+            subtext={pendingCount > 0 ? `${pendingCount} ${t('admin_pending_badge')}` : undefined}
           />
         </div>
-        <StatCard title="Bu Hafta Ciro" value={`₺${weekRevenue.toLocaleString('tr-TR')}`} />
-        <StatCard title="Teslim Edildi" value={deliveredCount} accentColor={green} />
+        <StatCard title={t('admin_analytics_week_revenue')} value={`₺${weekRevenue.toLocaleString('tr-TR')}`} />
+        <StatCard title={t('admin_status_delivered')} value={deliveredCount} accentColor={green} />
       </div>
 
       {/* ROW 2 - Two panels */}
@@ -1007,11 +1034,11 @@ function AnalyticsTab() {
         {/* Top Meals */}
         <div className="p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
           <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
-            En Çok Sipariş Edilen Öğünler
+            {t('admin_analytics_top_meals')}
           </h3>
           {topMeals.length === 0 ? (
             <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '14px', color: '#8A8A8A', textAlign: 'center', padding: '20px 0' }}>
-              Henüz sipariş verisi yok
+              {t('admin_analytics_no_meals')}
             </p>
           ) : (
             <div className="space-y-3">
@@ -1041,13 +1068,13 @@ function AnalyticsTab() {
         {/* Plan Distribution */}
         <div className="p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
           <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
-            Paket Dağılımı
+            {t('admin_analytics_plan_dist')}
           </h3>
           <div className="space-y-3">
             {singleOrderCount > 0 && (
               <div className="flex items-center justify-between mb-3">
                 <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#4A4A4A' }}>
-                  Tekli Sipariş
+                  {t('admin_analytics_single')}
                 </span>
                 <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', fontWeight: 600, color: '#1A1A1A' }}>
                   {singleOrderCount} ({totalOrders > 0 ? Math.round((singleOrderCount / totalOrders) * 100) : 0}%)
@@ -1071,16 +1098,16 @@ function AnalyticsTab() {
       {/* ROW 3 - Recent Orders */}
       <div className="p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
         <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
-          Son Siparişler
+          {t('admin_analytics_recent')}
         </h3>
         {state.orders.length === 0 ? (
           <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '14px', color: '#8A8A8A', textAlign: 'center', padding: '20px 0' }}>
-            Sipariş yok
+            {t('admin_analytics_no_orders')}
           </p>
         ) : (
           <div className="space-y-0 divide-y" style={{ borderColor: '#E5DDD0' }}>
             {state.orders.slice(0, 5).map(order => {
-              const sc = STATUS_COLORS[order.status];
+              const sc = STATUS_BG_COLOR[order.status];
               return (
                 <div key={order.id} className="py-3 first:pt-0 last:pb-0">
                   <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
@@ -1091,7 +1118,7 @@ function AnalyticsTab() {
                       {order.customerName}
                     </span>
                     <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#8A8A8A' }}>
-                      {order.subscriptionPlan ? order.subscriptionPlan.name : 'Tekli'}
+                      {order.subscriptionPlan ? order.subscriptionPlan.name : t('admin_analytics_single_label')}
                     </span>
                     <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 600, color: '#1A1A1A' }}>
                       ₺{order.total.toLocaleString('tr-TR')}
@@ -1100,7 +1127,7 @@ function AnalyticsTab() {
                       className="px-2.5 py-1 rounded-full text-xs font-semibold"
                       style={{ background: sc.bg, color: sc.color, fontFamily: "'Montserrat', sans-serif" }}
                     >
-                      {sc.label}
+                      {statusLabel(order.status)}
                     </span>
                     <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '11px', color: '#8A8A8A' }}>
                       {new Date(order.createdAt).toLocaleDateString('tr-TR')}
@@ -1121,6 +1148,7 @@ function AnalyticsTab() {
 // ─────────────────────────────────────────
 function AIAssistantTab() {
   const { state, dispatch } = useApp();
+  const t = useT(state.lang);
   const [newButtonInput, setNewButtonInput] = useState('');
   const [saveMessage, setSaveMessage] = useState('');
   const [tempPrompt, setTempPrompt] = useState(state.aiSystemPrompt);
@@ -1132,7 +1160,7 @@ function AIAssistantTab() {
 
   const handleSavePrompt = () => {
     dispatch({ type: 'SET_AI_SYSTEM_PROMPT', payload: tempPrompt });
-    setSaveMessage('Kaydedildi ✓');
+    setSaveMessage(t('admin_ai_prompt_saved') + ' ✓');
     setTimeout(() => setSaveMessage(''), 2000);
   };
 
@@ -1149,20 +1177,20 @@ function AIAssistantTab() {
 
   const handleSaveButtons = () => {
     dispatch({ type: 'SET_AI_QUICK_BUTTONS', payload: tempButtons });
-    setSaveMessage('Kaydedildi ✓');
+    setSaveMessage(t('admin_ai_prompt_saved') + ' ✓');
     setTimeout(() => setSaveMessage(''), 2000);
   };
 
   return (
     <div>
       <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.2rem', color: '#1A1A1A', marginBottom: '20px' }}>
-        AI Asistan Yönetimi
+        {t('admin_ai_title_tab')}
       </h2>
 
       {/* Section 1 - Status Toggle */}
       <div className="mb-6 p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
         <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
-          Asistan Durumu
+          {t('admin_ai_status_section')}
         </h3>
         <button
           onClick={handleToggleAI}
@@ -1188,7 +1216,7 @@ function AIAssistantTab() {
             />
           </div>
           <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 600, color: state.aiAssistantEnabled ? green : '#8A8A8A' }}>
-            {state.aiAssistantEnabled ? 'Asistan Aktif' : 'Asistan Kapalı'}
+            {state.aiAssistantEnabled ? t('admin_ai_on') : t('admin_ai_off')}
           </span>
         </button>
       </div>
@@ -1196,10 +1224,10 @@ function AIAssistantTab() {
       {/* Section 2 - System Prompt */}
       <div className="mb-6 p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
         <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '4px' }}>
-          Sistem Mesajı
+          {t('admin_ai_system_section')}
         </h3>
         <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#8A8A8A', marginBottom: '12px' }}>
-          Asistanın nasıl davranacağını ve ne bildiğini buradan düzenleyebilirsiniz.
+          {t('admin_ai_system_desc')}
         </p>
         <textarea
           value={tempPrompt}
@@ -1224,7 +1252,7 @@ function AIAssistantTab() {
             className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer"
             style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
           >
-            Kaydet
+            {t('admin_save')}
           </button>
           {saveMessage && (
             <span style={{ color: green, fontFamily: "'Montserrat', sans-serif", fontSize: '13px', fontWeight: 600 }}>
@@ -1237,10 +1265,10 @@ function AIAssistantTab() {
       {/* Section 3 - Quick Buttons */}
       <div className="mb-6 p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
         <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '4px' }}>
-          Hızlı Yanıtlar
+          {t('admin_ai_quick_section')}
         </h3>
         <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#8A8A8A', marginBottom: '12px' }}>
-          Müşterilerin chat'te göreceği hızlı soru butonları
+          {t('admin_ai_quick_desc')}
         </p>
         <div className="space-y-2 mb-4">
           {tempButtons.map((btn, i) => (
@@ -1274,7 +1302,7 @@ function AIAssistantTab() {
           <div className="flex gap-2 mb-4">
             <input
               type="text"
-              placeholder="Yeni buton metni"
+              placeholder={t('admin_ai_add_button_placeholder')}
               value={newButtonInput}
               onChange={e => setNewButtonInput(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && handleAddButton()}
@@ -1295,7 +1323,7 @@ function AIAssistantTab() {
               className="px-4 py-2 rounded-lg text-sm font-medium cursor-pointer"
               style={{ background: '#E8F0E8', color: green, fontFamily: "'Montserrat', sans-serif" }}
             >
-              + Ekle
+              {t('admin_ai_add')}
             </button>
           </div>
         )}
@@ -1304,14 +1332,14 @@ function AIAssistantTab() {
           className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer"
           style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
         >
-          Kaydet
+          {t('admin_save')}
         </button>
       </div>
 
       {/* Section 4 - API Status */}
       <div className="p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
         <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
-          API Bağlantısı
+          {t('admin_ai_api_section')}
         </h3>
         <div className="flex items-start gap-3 mb-4">
           <div className="w-2.5 h-2.5 rounded-full mt-1" style={{ background: '#FF9800' }} />
@@ -1320,10 +1348,10 @@ function AIAssistantTab() {
               Anthropic API
             </p>
             <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '13px', color: '#8A8A8A' }}>
-              API anahtarı bekleniyor
+              {t('admin_ai_api_waiting')}
             </p>
             <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', marginTop: '8px' }}>
-              Ödeme onaylandıktan sonra API anahtarı eklenecek ve asistan aktif hale gelecektir.
+              {t('admin_ai_api_desc')}
             </p>
           </div>
         </div>
@@ -1341,7 +1369,7 @@ function AIAssistantTab() {
           VITE_ANTHROPIC_API_KEY=••••••••
         </div>
         <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A' }}>
-          Bu anahtarı Vercel dashboard → Environment Variables bölümünden ekleyin.
+          {t('admin_ai_api_note')}
         </p>
       </div>
     </div>
@@ -1353,6 +1381,7 @@ function AIAssistantTab() {
 // ─────────────────────────────────────────
 function SettingsTab() {
   const { state, dispatch } = useApp();
+  const t = useT(state.lang);
   const [tempSettings, setTempSettings] = useState(state.businessSettings);
   const [currentPass, setCurrentPass] = useState('');
   const [newPass, setNewPass] = useState('');
@@ -1370,7 +1399,7 @@ function SettingsTab() {
 
   const handleSaveSettings = () => {
     dispatch({ type: 'UPDATE_BUSINESS_SETTINGS', payload: tempSettings });
-    setSaveMessage('Kaydedildi ✓');
+    setSaveMessage(t('admin_ai_prompt_saved') + ' ✓');
     setTimeout(() => setSaveMessage(''), 2000);
   };
 
@@ -1379,15 +1408,15 @@ function SettingsTab() {
     setPassSuccess('');
 
     if (currentPass !== state.adminPassword) {
-      setPassError('Mevcut şifre hatalı');
+      setPassError(t('admin_settings_pass_current_wrong'));
       return;
     }
     if (newPass.length < 6) {
-      setPassError('Yeni şifre en az 6 karakter olmalı');
+      setPassError(t('admin_settings_pass_minlen'));
       return;
     }
     if (newPass !== confirmPass) {
-      setPassError('Yeni şifreler eşleşmiyor');
+      setPassError(t('admin_pass_mismatch'));
       return;
     }
 
@@ -1395,20 +1424,20 @@ function SettingsTab() {
     setCurrentPass('');
     setNewPass('');
     setConfirmPass('');
-    setPassSuccess('Şifre değiştirildi ✓');
+    setPassSuccess(t('admin_settings_pass_changed_ok'));
     setTimeout(() => setPassSuccess(''), 3000);
   };
 
   return (
     <div>
       <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.2rem', color: '#1A1A1A', marginBottom: '20px' }}>
-        İşletme Ayarları
+        {t('admin_settings_title')}
       </h2>
 
       {/* Section 1 - Order Status */}
       <div className="mb-6 p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
         <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
-          Sipariş Durumu
+          {t('admin_settings_order_section')}
         </h3>
         <button
           onClick={() => handleSettingChange('isAcceptingOrders', !tempSettings.isAcceptingOrders)}
@@ -1434,12 +1463,12 @@ function SettingsTab() {
             />
           </div>
           <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 600, color: tempSettings.isAcceptingOrders ? green : '#C0392B' }}>
-            {tempSettings.isAcceptingOrders ? 'Sipariş Alınıyor' : 'Siparişe Kapalı'}
+            {tempSettings.isAcceptingOrders ? t('admin_settings_accepting') : t('admin_settings_closed_state')}
           </span>
         </button>
         <div>
           <label style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', display: 'block', marginBottom: '8px' }}>
-            Kapalı Mesajı
+            {t('admin_settings_closed_msg')}
           </label>
           <textarea
             value={tempSettings.closedMessage}
@@ -1464,15 +1493,15 @@ function SettingsTab() {
       {/* Section 2 - Business Info */}
       <div className="mb-6 p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
         <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
-          İşletme Bilgileri
+          {t('admin_settings_business_section')}
         </h3>
         <div className="space-y-4">
           {[
-            { key: 'businessName', label: 'İşletme Adı' },
-            { key: 'phone', label: 'Telefon' },
-            { key: 'email', label: 'Email' },
-            { key: 'deliveryAreas', label: 'Teslimat Bölgeleri' },
-            { key: 'deliveryHours', label: 'Teslimat Saatleri' },
+            { key: 'businessName', label: t('admin_settings_field_name') },
+            { key: 'phone', label: t('admin_settings_field_phone') },
+            { key: 'email', label: t('admin_settings_field_email') },
+            { key: 'deliveryAreas', label: t('admin_settings_field_areas') },
+            { key: 'deliveryHours', label: t('admin_settings_field_hours') },
           ].map(({ key, label }) => (
             <div key={key}>
               <label style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', display: 'block', marginBottom: '6px' }}>
@@ -1502,20 +1531,20 @@ function SettingsTab() {
           className="mt-4 px-6 py-3 rounded-full text-sm font-semibold cursor-pointer"
           style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
         >
-          Kaydet
+          {t('admin_save')}
         </button>
       </div>
 
       {/* Section 3 - Delivery Settings */}
       <div className="mb-6 p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
         <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
-          Teslimat & Ödeme Ayarları
+          {t('admin_settings_delivery_section')}
         </h3>
         <div className="space-y-4">
           {[
-            { key: 'minOrderAmount', label: 'Min. Sipariş Tutarı (₺)' },
-            { key: 'freeDeliveryThreshold', label: 'Ücretsiz Teslimat Sınırı (₺)' },
-            { key: 'deliveryFee', label: 'Teslimat Ücreti (₺)' },
+            { key: 'minOrderAmount', label: t('admin_settings_field_min_order') },
+            { key: 'freeDeliveryThreshold', label: t('admin_settings_field_free_delivery') },
+            { key: 'deliveryFee', label: t('admin_settings_field_delivery_fee') },
           ].map(({ key, label }) => (
             <div key={key}>
               <label style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', display: 'block', marginBottom: '6px' }}>
@@ -1542,14 +1571,14 @@ function SettingsTab() {
           ))}
         </div>
         <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', marginTop: '12px' }}>
-          Bu değerler sepet hesaplamalarına otomatik olarak yansır.
+          {t('admin_settings_delivery_note')}
         </p>
         <button
           onClick={handleSaveSettings}
           className="mt-4 px-6 py-3 rounded-full text-sm font-semibold cursor-pointer"
           style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
         >
-          Kaydet
+          {t('admin_save')}
         </button>
         {saveMessage && (
           <p style={{ color: green, fontFamily: "'Montserrat', sans-serif", fontSize: '13px', fontWeight: 600, marginTop: '8px' }}>
@@ -1561,12 +1590,12 @@ function SettingsTab() {
       {/* Section 4 - Admin Password */}
       <div className="p-5 rounded-xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
         <h3 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1rem', color: '#1A1A1A', marginBottom: '16px' }}>
-          Admin Şifresi Değiştir
+          {t('admin_settings_pass_section')}
         </h3>
         <div className="space-y-4">
           <div className="relative">
             <label style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', display: 'block', marginBottom: '6px' }}>
-              Mevcut Şifre
+              {t('admin_settings_curr_pass')}
             </label>
             <input
               type={showCurrentPass ? 'text' : 'password'}
@@ -1594,7 +1623,7 @@ function SettingsTab() {
           </div>
           <div className="relative">
             <label style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', display: 'block', marginBottom: '6px' }}>
-              Yeni Şifre
+              {t('admin_settings_new_pass')}
             </label>
             <input
               type={showNewPass ? 'text' : 'password'}
@@ -1622,7 +1651,7 @@ function SettingsTab() {
           </div>
           <div className="relative">
             <label style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '12px', color: '#8A8A8A', display: 'block', marginBottom: '6px' }}>
-              Şifreyi Onayla
+              {t('admin_settings_confirm_pass')}
             </label>
             <input
               type={showConfirmPass ? 'text' : 'password'}
@@ -1664,7 +1693,7 @@ function SettingsTab() {
           className="mt-4 px-6 py-3 rounded-full text-sm font-semibold cursor-pointer"
           style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
         >
-          Şifreyi Güncelle
+          {t('admin_settings_pass_update')}
         </button>
       </div>
     </div>
@@ -1676,6 +1705,15 @@ function SettingsTab() {
 // ─────────────────────────────────────────
 function ProductionTab() {
   const { state, dispatch } = useApp();
+  const t = useT(state.lang);
+  const statusLabel = (s: string) => {
+    if (s === 'pending')   return t('admin_status_pending');
+    if (s === 'preparing') return t('admin_status_preparing');
+    if (s === 'ready')     return t('admin_status_ready');
+    if (s === 'delivered') return t('admin_status_delivered');
+    if (s === 'cancelled') return t('admin_status_cancelled');
+    return s;
+  };
   const [dateStr, setDateStr] = useState<string>(new Date().toISOString().split('T')[0]);
 
   // Find deliveries for this date
@@ -1726,7 +1764,7 @@ function ProductionTab() {
     <div>
       <div className="flex items-center justify-between mb-5">
         <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.2rem', color: '#1A1A1A' }}>
-          Günlük Üretim & Teslimat
+          {t('admin_production_title')}
         </h2>
         <input 
           type="date" 
@@ -1740,9 +1778,9 @@ function ProductionTab() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Üretim Listesi - Mutfak */}
         <div className="lg:col-span-1 p-5 rounded-2xl h-fit" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
-          <h3 className="font-bold mb-4" style={{ color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>🍴 Mutfak Üretim Listesi</h3>
+          <h3 className="font-bold mb-4" style={{ color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>{t('admin_production_kitchen')}</h3>
           {productionList.length === 0 ? (
-            <p className="text-sm text-gray-500">Bu tarih için üretim yok.</p>
+            <p className="text-sm text-gray-500">{t('admin_production_no_items')}</p>
           ) : (
             <div className="space-y-3">
               {productionList.map(p => (
@@ -1759,20 +1797,20 @@ function ProductionTab() {
 
         {/* Dağıtım Listesi - Kurye */}
         <div className="lg:col-span-2 p-5 rounded-2xl" style={{ background: '#FFFFFF', border: '1.5px solid #E5DDD0' }}>
-          <h3 className="font-bold mb-4" style={{ color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>🚚 Dağıtım Listesi</h3>
+          <h3 className="font-bold mb-4" style={{ color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>{t('admin_production_delivery_list')}</h3>
           {todaysDeliveries.length === 0 ? (
-            <p className="text-sm text-gray-500">Bu tarih için teslimat yok.</p>
+            <p className="text-sm text-gray-500">{t('admin_production_no_deliveries')}</p>
           ) : (
             <div className="space-y-4">
               {todaysDeliveries.map((td, i) => {
-                const sc = STATUS_COLORS[td.delivery.status as keyof typeof STATUS_COLORS] || STATUS_COLORS.pending;
+                const sc = STATUS_BG_COLOR[td.delivery.status as keyof typeof STATUS_BG_COLOR] || STATUS_BG_COLOR.pending;
                 return (
                   <div key={i} className="p-4 rounded-xl border" style={{ borderColor: '#E5DDD0', background: '#FAFAFA' }}>
                     <div className="flex justify-between items-start mb-3">
                       <div>
                         <div className="flex items-center gap-2 mb-1">
                           <span className="font-bold text-[#1A1A1A] text-lg">{td.order.customerName}</span>
-                          <span className="text-[10px] uppercase font-bold bg-[#E5DDD0] px-2 py-0.5 rounded-full text-[#4A4A4A]">{td.isAlacarte ? 'A la Carte' : 'Paket Abonelik'}</span>
+                          <span className="text-[10px] uppercase font-bold bg-[#E5DDD0] px-2 py-0.5 rounded-full text-[#4A4A4A]">{td.isAlacarte ? t('admin_alacarte_label') : t('admin_subscription_label')}</span>
                           {td.delivery.timeSlot && (
                             <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full border border-green-100">
                               ⏰ {td.delivery.timeSlot}
@@ -1784,14 +1822,14 @@ function ProductionTab() {
                         <p className="text-xs font-semibold text-green-700">{td.delivery.items.map((it: any) => `${it.quantity}x ${it.meal.name}`).join(', ')}</p>
                       </div>
                       <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase" style={{ background: sc.bg, color: sc.color }}>
-                        {sc.label}
+                        {statusLabel(td.delivery.status)}
                       </span>
                     </div>
 
                     {/* Status Toggle */}
                     <div className="flex flex-wrap gap-2 pt-3 border-t border-gray-200">
                       {statuses.map(s => {
-                        const sc2 = STATUS_COLORS[s];
+                        const sc2 = STATUS_BG_COLOR[s];
                         const isActive = td.delivery.status === s;
                         return (
                           <button
@@ -1811,7 +1849,7 @@ function ProductionTab() {
                               fontWeight: isActive ? 700 : 500
                             }}
                           >
-                            {sc2.label}
+                            {statusLabel(s)}
                           </button>
                         );
                       })}
@@ -2100,14 +2138,14 @@ export default function AdminDashboard() {
   if (!loggedIn) return <AdminLogin onLogin={handleLogin} adminPassword={state.adminPassword} />;
 
   const tabs: { id: AdminTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'orders',   label: 'Siparişler',      icon: <ShoppingBag size={16} /> },
-    { id: 'delivery', label: t('admin_delivery_board'), icon: <Truck size={16} /> },
-    { id: 'production', label: 'Üretim & Teslimat', icon: <Truck size={16} /> },
-    { id: 'menu',     label: 'Menü Yönetimi',   icon: <UtensilsCrossed size={16} /> },
-    { id: 'packages', label: 'Paket Yönetimi',  icon: <Package size={16} /> },
-    { id: 'analytics', label: 'Analitik',       icon: <BarChart2 size={16} /> },
-    { id: 'ai',       label: 'AI Asistan',      icon: <Bot size={16} /> },
-    { id: 'settings', label: 'Ayarlar',         icon: <Settings size={16} /> },
+    { id: 'orders',     label: t('admin_orders_tab'),      icon: <ShoppingBag size={16} /> },
+    { id: 'delivery',   label: t('admin_delivery_board'),  icon: <Truck size={16} /> },
+    { id: 'production', label: t('admin_production'),      icon: <Truck size={16} /> },
+    { id: 'menu',       label: t('admin_meal_management'), icon: <UtensilsCrossed size={16} /> },
+    { id: 'packages',   label: t('admin_plan_management'), icon: <Package size={16} /> },
+    { id: 'analytics',  label: t('admin_analytics'),       icon: <BarChart2 size={16} /> },
+    { id: 'ai',         label: t('admin_assistant'),       icon: <Bot size={16} /> },
+    { id: 'settings',   label: t('admin_settings'),        icon: <Settings size={16} /> },
   ];
 
   const pendingCount = state.orders.filter(o => o.status === 'pending').length;
@@ -2124,12 +2162,12 @@ export default function AdminDashboard() {
               onClick={handleLogout}
               className="w-9 h-9 rounded-xl flex items-center justify-center cursor-pointer hover:opacity-70"
               style={{ background: '#E5DDD0' }}
-              title="Çıkış yap ve ana sayfaya dön"
+              title={t('admin_logout')}
             >
               <ArrowLeft size={16} style={{ color: '#4A4A4A' }} />
             </button>
             <span style={{ fontFamily: "'Montserrat', sans-serif", fontWeight: 700, color: '#1A1A1A', fontSize: '1.1rem' }}>
-              Yönetim Paneli
+              {t('admin_title')}
             </span>
           </div>
 
@@ -2138,7 +2176,7 @@ export default function AdminDashboard() {
             {pendingCount > 0 && (
               <span className="px-2.5 py-1 rounded-full text-xs font-bold"
                 style={{ background: '#FEF9C3', color: '#854D0E', fontFamily: "'Montserrat', sans-serif" }}>
-                {pendingCount} bekliyor
+                {pendingCount} {t('admin_pending_badge')}
               </span>
             )}
             <button
@@ -2197,8 +2235,8 @@ export default function AdminDashboard() {
                     <Settings size={20} className="text-amber-600 animate-spin-slow" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-[#1A1A1A]">Üretime Hazırlık: Veritabanı Bağlantısı</p>
-                    <p className="text-xs text-[#8A8A8A]">Şu an veriler cihazınızda saklanıyor. Canlıya geçmek için Supabase bağlayın.</p>
+                    <p className="text-sm font-bold text-[#1A1A1A]">{t('admin_db_banner_title')}</p>
+                    <p className="text-xs text-[#8A8A8A]">{t('admin_db_banner_desc')}</p>
                   </div>
                 </div>
                 <button 
@@ -2206,7 +2244,7 @@ export default function AdminDashboard() {
                   className="px-4 py-2 rounded-xl text-xs font-bold text-white transition-transform active:scale-95" 
                   style={{ background: gold }}
                 >
-                  Bağla
+                  {t('admin_db_connect')}
                 </button>
               </div>
 
