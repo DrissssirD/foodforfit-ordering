@@ -37,21 +37,32 @@ interface FormState {
   notes: string;
 }
 
-const TIME_SLOTS = [
-  { key: 'morning', label: 'Sabah 08-10', range: '08:00 - 10:00' },
-  { key: 'noon', label: 'Öğle 12-14', range: '12:00 - 14:00' },
-  { key: 'evening', label: 'Akşam 18-20', range: '18:00 - 20:00' },
-];
+function getTimeSlots(lang: string) {
+  if (lang === 'en') return [
+    { key: 'morning', label: 'Morning 08-10', range: '08:00 - 10:00' },
+    { key: 'noon',    label: 'Lunch 12-14',   range: '12:00 - 14:00' },
+    { key: 'evening', label: 'Evening 18-20', range: '18:00 - 20:00' },
+  ];
+  if (lang === 'ru') return [
+    { key: 'morning', label: 'Утро 08-10',  range: '08:00 - 10:00' },
+    { key: 'noon',    label: 'Обед 12-14',  range: '12:00 - 14:00' },
+    { key: 'evening', label: 'Вечер 18-20', range: '18:00 - 20:00' },
+  ];
+  return [
+    { key: 'morning', label: 'Sabah 08-10', range: '08:00 - 10:00' },
+    { key: 'noon',    label: 'Öğle 12-14',  range: '12:00 - 14:00' },
+    { key: 'evening', label: 'Akşam 18-20', range: '18:00 - 20:00' },
+  ];
+}
 
-function getNext7Days(): { label: string; date: string }[] {
+function getNext7Days(lang: string): { label: string; date: string }[] {
   const days: { label: string; date: string }[] = [];
-  const dayNames = ['Paz', 'Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt'];
-  const monthNames = ['Oca', 'Şub', 'Mar', 'Nis', 'May', 'Haz', 'Tem', 'Ağu', 'Eyl', 'Eki', 'Kas', 'Ara'];
+  const locale = lang === 'ru' ? 'ru-RU' : lang === 'en' ? 'en-US' : 'tr-TR';
   for (let i = 1; i <= 7; i++) {
     const d = new Date();
     d.setDate(d.getDate() + i);
     days.push({
-      label: `${dayNames[d.getDay()]} ${d.getDate()} ${monthNames[d.getMonth()]}`,
+      label: d.toLocaleDateString(locale, { weekday: 'short', day: 'numeric', month: 'short' }),
       date: d.toISOString().split('T')[0],
     });
   }
@@ -140,7 +151,8 @@ export default function FitAssistant() {
   const [showOtherPlans, setShowOtherPlans] = useState(false);
   const [catFilter, setCatFilter] = useState('all');
   const [scheduleSlots, setScheduleSlots] = useState<ScheduleSlot[]>([]);
-  const next7Days = getNext7Days();
+  const next7Days = getNext7Days(lang);
+  const TIME_SLOTS = getTimeSlots(lang);
 
   const [form, setForm] = useState<FormState>({
     name: '', phone: '', email: '',
@@ -379,7 +391,7 @@ Rules: exactly 2 sentences. First sentence: recommend this plan by name. Second 
         items: Array.from(itemsMap.values()),
       });
     }
-    return deliveries.sort((a, b) => a.date.localeCompare(b.date));
+    return deliveries.sort((a, b) => (a.date ?? '').localeCompare(b.date ?? ''));
   }
 
   async function handleFormSubmit() {
@@ -750,7 +762,7 @@ Rules: exactly 2 sentences. First sentence: recommend this plan by name. Second 
                   <span style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '0.75rem', fontWeight: 700, color: '#1A1A1A', flex: 1 }}>
                     {mealName.length > 24 ? mealName.slice(0, 22) + '…' : mealName}
                   </span>
-                  {isConflict && <span style={{ fontSize: '0.63rem', color: '#C0392B', fontFamily: "'Montserrat', sans-serif" }}>⚠️ Çakışma</span>}
+                  {isConflict && <span style={{ fontSize: '0.63rem', color: '#C0392B', fontFamily: "'Montserrat', sans-serif" }}>⚠️ {t('agent_conflict_label')}</span>}
                 </div>
                 {/* Day picker */}
                 <div className="flex gap-1 overflow-x-auto mb-2 pb-0.5" style={{ scrollbarWidth: 'none' }}>
@@ -842,7 +854,7 @@ Rules: exactly 2 sentences. First sentence: recommend this plan by name. Second 
         {hasConflict && (
           <div className="mt-2 p-2.5 rounded-xl" style={{ background: '#FFF3F0', border: '1px solid #FF6B6B' }}>
             <p style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '0.72rem', color: '#C0392B' }}>
-              ⚠️ {lang === 'en' ? 'Some meals share the same day and time slot. Please fix conflicts.' : lang === 'ru' ? 'Некоторые блюда назначены на одно и то же время. Исправьте конфликты.' : 'Bazı yemekler aynı gün ve saatte. Lütfen çakışmaları düzeltin.'}
+              ⚠️ {t('agent_conflict_msg')}
             </p>
           </div>
         )}
@@ -964,7 +976,7 @@ Rules: exactly 2 sentences. First sentence: recommend this plan by name. Second 
             <div className="flex items-center gap-2">
               <Sparkles size={18} style={{ color: GOLD }} />
               <span style={{ color: '#fff', fontFamily: "'Montserrat', sans-serif", fontWeight: 700, fontSize: '1.05rem' }}>
-                ✨ FIT Asistan
+                ✨ {lang === 'en' ? 'FIT Assistant' : lang === 'ru' ? 'FIT Ассистент' : 'FIT Asistan'}
               </span>
             </div>
             <button
@@ -1096,7 +1108,7 @@ Rules: exactly 2 sentences. First sentence: recommend this plan by name. Second 
           }}
         >
           <Sparkles size={16} style={{ color: GOLD }} />
-          ✨ FIT Asistan
+          ✨ {lang === 'en' ? 'FIT Assistant' : lang === 'ru' ? 'FIT Ассистент' : 'FIT Asistan'}
           <span
             className="absolute"
             style={{ top: -4, right: -4, width: 10, height: 10, borderRadius: '50%', background: GOLD, boxShadow: `0 0 0 3px ${GOLD}55`, animation: 'pulse 2s cubic-bezier(0.4,0,0.6,1) infinite' }}
