@@ -53,6 +53,17 @@ export default function CartDrawer() {
               <span className="text-sm font-semibold" style={{ color: green, fontFamily: "'Montserrat', sans-serif" }}>
                 📦 {state.subscriptionPlan!.name} — {creditsUsed}/{totalCredits} {t('cart_meals_selected')}
               </span>
+              <button
+                onClick={() => {
+                  dispatch({ type: 'CLEAR_CART' });
+                  dispatch({ type: 'SET_ORDER_MODE', payload: 'alacarte' });
+                  dispatch({ type: 'SELECT_PLAN', payload: null as any });
+                }}
+                className="text-xs font-semibold px-2.5 py-1 rounded-full cursor-pointer hover:opacity-80 flex-shrink-0"
+                style={{ background: '#FEE2E2', color: '#C0392B', fontFamily: "'Montserrat', sans-serif" }}
+              >
+                ✕ {state.lang === 'tr' ? 'Paketi İptal Et' : state.lang === 'ru' ? 'Отменить пакет' : 'Cancel Plan'}
+              </button>
             </div>
             {/* Credits progress bar */}
             <div className="mt-2 h-1.5 rounded-full overflow-hidden" style={{ background: `${green}20` }}>

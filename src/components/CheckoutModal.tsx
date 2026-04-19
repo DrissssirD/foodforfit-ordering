@@ -1,8 +1,9 @@
 import { useState, useMemo } from 'react';
-import { X, Truck, MapPin, CreditCard, Calendar } from 'lucide-react';
+import { X, Truck, MapPin, CreditCard, Calendar, Zap } from 'lucide-react';
 import { useApp, useCartTotal } from '../store';
-import { useT } from '../i18n';
-import type { Order, ScheduledDelivery, DeliveryItem, Meal, CartItem } from '../types';
+import { useT, type TKey } from '../i18n';
+import type { Order, ScheduledDelivery, TimeSlot, Meal } from '../types';
+import { db } from '../lib/database';
 
 const green = '#1E3F30';
 
@@ -13,32 +14,13 @@ interface FormData {
   paymentMethod: 'cod' | 'card';
   cardNumber: string; cardExpiry: string; cardCvv: string;
   notes: string;
-  startDate: string;
-  deliveryDays: string[];
-  timeSlot: string;
 }
-
-const tomorrow = new Date();
-tomorrow.setDate(tomorrow.getDate() + 1);
-const tomorrowStr = tomorrow.toISOString().split('T')[0];
-
-const timeSlots = [
-  '08:00 - 10:00',
-  '10:00 - 12:00',
-  '12:00 - 14:00',
-  '14:00 - 16:00',
-  '16:00 - 18:00',
-  '18:00 - 20:00'
-];
 
 const initialForm: FormData = {
   deliveryType: 'teslimat', name: '', phone: '', email: '',
   address: '', district: '', postalCode: '',
   paymentMethod: 'cod', cardNumber: '', cardExpiry: '', cardCvv: '',
   notes: '',
-  startDate: tomorrowStr,
-  deliveryDays: ['1', '2', '3', '4', '5'], // Default to Mon-Fri
-  timeSlot: '08:00 - 10:00',
 };
 
 const iStyle = (err: boolean) => ({
@@ -48,57 +30,24 @@ const iStyle = (err: boolean) => ({
   fontFamily: "'Montserrat', sans-serif", color: '#1A1A1A', transition: 'border-color 0.2s',
 });
 
-// Auto-Scheduler Logic
-function generateDeliveries(cart: CartItem[], startDateStr: string, allowedDays: string[], timeSlot: string): ScheduledDelivery[] {
-  if (cart.length === 0 || allowedDays.length === 0) return [];
-  
-  const allMeals: Meal[] = [];
-  for (const item of cart) {
-    for (let i = 0; i < item.quantity; i++) {
-      allMeals.push(item.meal);
-    }
-  }
-  
-  const mealsPerDay = 2; // By default, package delivers 2 meals a day
-  const deliveries: ScheduledDelivery[] = [];
-  let currentDate = new Date(startDateStr);
-  let mealIndex = 0;
-  
-  while (mealIndex < allMeals.length) {
-    const dayOfWeek = currentDate.getDay() === 0 ? '7' : currentDate.getDay().toString();
-    
-    if (allowedDays.includes(dayOfWeek)) {
-      const dayMeals = allMeals.slice(mealIndex, mealIndex + mealsPerDay);
-      const deliveryItemsMap = new Map<string, DeliveryItem>();
-      
-      for (const m of dayMeals) {
-        if (deliveryItemsMap.has(m.id)) {
-           deliveryItemsMap.get(m.id)!.quantity++;
-        } else {
-           deliveryItemsMap.set(m.id, { meal: m, quantity: 1 });
-        }
-      }
-      
-      deliveries.push({
-        id: `del-${Date.now()}-${deliveries.length}`,
-        date: currentDate.toISOString().split('T')[0],
-        timeSlot: timeSlot,
-        status: 'pending',
-        items: Array.from(deliveryItemsMap.values())
-      });
-      
-      mealIndex += mealsPerDay;
-    }
-    currentDate.setDate(currentDate.getDate() + 1);
-  }
-  
-  return deliveries;
-}
+const getMealEmoji = (category: string): string => {
+  const map: Record<string, string> = {
+    kahvalti: '☕', ana: '🍽️', kase: '🥗', smoothie: '🥤', tatli: '🍰',
+  };
+  return map[category] ?? '🍱';
+};
+
+const dayKeyMap: Record<number, TKey> = {
+  0: 'chk_day_sun', 1: 'chk_day_mon', 2: 'chk_day_tue',
+  3: 'chk_day_wed', 4: 'chk_day_thu', 5: 'chk_day_fri', 6: 'chk_day_sat',
+};
 
 export default function CheckoutModal() {
   const { state, dispatch } = useApp();
   const t = useT(state.lang);
-  const [step, setStep] = useState(1);
+  // step 0 = delivery type picker (à la carte only), 1 = info, 2 = schedule, 3 = payment
+  const [step, setStep] = useState(0);
+  const [alacarteScheduled, setAlacarteScheduled] = useState<boolean | null>(null);
   const [form, setForm] = useState<FormData>(initialForm);
   const [errors, setErrors] = useState<Partial<Record<keyof FormData, string>>>({});
 
@@ -109,12 +58,54 @@ export default function CheckoutModal() {
   const deliveryFee = isSubscription ? 0 : (alacarteTotal >= FREE_DELIVERY_THRESHOLD ? 0 : DELIVERY_FEE);
   const orderTotal = isSubscription ? (state.subscriptionPlan?.price ?? 0) : alacarteTotal + deliveryFee;
 
-  const plannedDeliveries = useMemo(
-    () => isSubscription ? generateDeliveries(state.cart, form.startDate, form.deliveryDays, form.timeSlot) : [],
-    [isSubscription, state.cart, form.startDate, form.deliveryDays, form.timeSlot]
+  const needsSchedule = isSubscription || alacarteScheduled === true;
+
+  const mealInstances = useMemo(() => {
+    const arr: Meal[] = [];
+    for (const item of state.cart)
+      for (let i = 0; i < item.quantity; i++) arr.push(item.meal);
+    return arr;
+  }, [state.cart]);
+
+  const [mealAssignments, setMealAssignments] = useState<Array<{ day: string; timeSlot: string }>>(
+    () => mealInstances.map(() => ({ day: '', timeSlot: '' }))
   );
+  const [step2Error, setStep2Error] = useState('');
+
+  // 30 days from tomorrow
+  const thirtyDays = useMemo(() => {
+    const days: Date[] = [];
+    const base = new Date();
+    for (let i = 1; i <= 30; i++) {
+      const d = new Date(base);
+      d.setDate(base.getDate() + i);
+      days.push(d);
+    }
+    return days;
+  }, []);
+
+  const localeLang = state.lang === 'tr' ? 'tr-TR' : state.lang === 'ru' ? 'ru-RU' : 'en-US';
+
+  const conflictMap = useMemo(() => {
+    const map: Record<string, number[]> = {};
+    mealInstances.forEach((_, i) => {
+      const a = mealAssignments[i];
+      if (a?.day && a?.timeSlot) {
+        const key = `${a.day}-${a.timeSlot}`;
+        if (!map[key]) map[key] = [];
+        map[key].push(i);
+      }
+    });
+    return map;
+  }, [mealInstances, mealAssignments]);
 
   if (!state.checkoutOpen) return null;
+
+  // For subscription, skip step 0 — always start at 1
+  const effectiveStep = isSubscription && step === 0 ? 1 : step;
+
+  const formatDay = (d: Date) =>
+    `${t(dayKeyMap[d.getDay()])} ${d.getDate()} ${d.toLocaleDateString(localeLang, { month: 'short' })}`;
 
   const update = (key: keyof FormData, value: any) => {
     setForm(p => ({ ...p, [key]: value }));
@@ -145,6 +136,20 @@ export default function CheckoutModal() {
     return Object.keys(errs).length === 0;
   };
 
+  const validateStep2 = (): boolean => {
+    if (!mealInstances.every((_, i) => mealAssignments[i]?.day && mealAssignments[i]?.timeSlot)) {
+      setStep2Error(t('chk_schedule_incomplete'));
+      return false;
+    }
+    setStep2Error('');
+    return true;
+  };
+
+  const updateAssignment = (idx: number, key: 'day' | 'timeSlot', value: string) => {
+    setMealAssignments(prev => prev.map((a, i) => i === idx ? { ...a, [key]: value } : a));
+    if (step2Error) setStep2Error('');
+  };
+
   const handleSubmit = () => {
     const errs: Partial<Record<keyof FormData, string>> = {};
     if (form.paymentMethod === 'card') {
@@ -155,8 +160,7 @@ export default function CheckoutModal() {
         const [mm, yy] = form.cardExpiry.split('/').map(Number);
         const now = new Date();
         const expYear = 2000 + yy;
-        const expMonth = mm;
-        if (mm < 1 || mm > 12 || expYear < now.getFullYear() || (expYear === now.getFullYear() && expMonth < now.getMonth() + 1)) {
+        if (mm < 1 || mm > 12 || expYear < now.getFullYear() || (expYear === now.getFullYear() && mm < now.getMonth() + 1)) {
           errs.cardExpiry = t('err_expiry');
         }
       }
@@ -165,68 +169,138 @@ export default function CheckoutModal() {
     setErrors(errs);
     if (Object.keys(errs).length === 0) {
       const orderNum = `FFF-${Math.floor(1000 + Math.random() * 9000)}`;
+      const scheduledDeliveries: ScheduledDelivery[] = needsSchedule
+        ? mealInstances.map((meal, i) => ({
+            id: `del-${Date.now()}-${i}`,
+            mealId: meal.id,
+            mealName: meal.name,
+            day: mealAssignments[i]?.day ?? '',
+            date: mealAssignments[i]?.day ?? '',
+            timeSlot: (mealAssignments[i]?.timeSlot ?? 'morning') as TimeSlot,
+            status: 'scheduled' as const,
+          }))
+        : [];
       const order: Order = {
         id: `order-${Date.now()}`, orderNumber: orderNum,
         customerName: form.name, customerPhone: form.phone, customerEmail: form.email,
-        items: [...state.cart], 
-        deliveries: isSubscription ? plannedDeliveries : undefined,
+        items: [...state.cart],
+        deliveries: needsSchedule ? scheduledDeliveries : undefined,
         total: orderTotal,
         deliveryType: form.deliveryType, address: form.address, district: form.district,
-        deliveryDate: form.startDate, deliveryTime: '',
+        deliveryDate: needsSchedule ? (mealAssignments[0]?.day ?? '') : new Date(Date.now() + 86400000).toISOString().split('T')[0],
+        deliveryTime: '',
         paymentMethod: form.paymentMethod, status: 'pending',
         createdAt: new Date().toISOString(), subscriptionPlan: state.subscriptionPlan,
         notes: form.notes.trim() || undefined,
       };
       dispatch({ type: 'COMPLETE_ORDER', payload: order });
+      db.createOrder(order);
     }
   };
 
-  const labelStyle = { fontSize: '13px', fontWeight: 500, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", marginBottom: '8px', display: 'block' };
+  const labelStyle = { fontSize: '13px', fontWeight: 500, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", marginBottom: '8px', display: 'block' as const };
   const errStyle = { color: '#C0392B', fontSize: '11px', marginTop: '4px', fontFamily: "'Montserrat', sans-serif" };
-
-  const finalStepNum = isSubscription ? 3 : 2;
-  const stepsList = isSubscription
+  const finalStepNum = needsSchedule ? 3 : 2;
+  const stepsList = needsSchedule
     ? [{ n: 1, label: t('chk_info') }, { n: 2, label: t('chk_schedule') }, { n: 3, label: t('chk_payment') }]
     : [{ n: 1, label: t('chk_info') }, { n: 2, label: t('chk_payment') }];
 
+  const lang = state.lang;
+  const txt = (tr: string, en: string, ru: string) => lang === 'tr' ? tr : lang === 'ru' ? ru : en;
+
   return (
     <>
-      <div className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+      <div className="fixed inset-0 z-[60]"
         style={{ background: 'rgba(26,26,26,0.55)', backdropFilter: 'blur(6px)' }}
-        onClick={() => dispatch({ type: 'TOGGLE_CHECKOUT', payload: false })}>
-        <div className="w-full max-w-[580px] max-h-[90vh] flex flex-col rounded-3xl overflow-hidden animate-fade-in-up"
-          style={{ background: '#FDF6F2', boxShadow: '0 24px 80px rgba(0,0,0,0.2)' }}
-          onClick={e => e.stopPropagation()}>
+        onClick={() => dispatch({ type: 'TOGGLE_CHECKOUT', payload: false })} />
 
+      <div className="fixed inset-0 z-[61] flex items-center justify-center p-4 pointer-events-none">
+        <div className="w-full max-w-[580px] max-h-[90vh] flex flex-col rounded-3xl overflow-hidden animate-fade-in-up pointer-events-auto"
+          style={{ background: '#FDF6F2', boxShadow: '0 24px 80px rgba(0,0,0,0.2)' }}>
+
+          {/* Header */}
           <div className="flex items-center justify-between px-6 py-5 border-b" style={{ borderColor: '#E5DDD0' }}>
             <h2 style={{ fontFamily: "'Montserrat', sans-serif", fontSize: '1.2rem', color: '#1A1A1A', fontWeight: 700 }}>{t('chk_title')}</h2>
-            <button onClick={() => dispatch({ type: 'TOGGLE_CHECKOUT', payload: false })}
+            <button type="button" onClick={() => dispatch({ type: 'TOGGLE_CHECKOUT', payload: false })}
               className="w-9 h-9 rounded-2xl flex items-center justify-center cursor-pointer hover:opacity-70" style={{ background: '#E5DDD0' }}>
               <X size={16} style={{ color: '#1A1A1A' }} />
             </button>
           </div>
 
-          <div className="px-6 pt-5 pb-1 flex items-center justify-center gap-2">
-            {stepsList.map((s, i) => (
-              <div key={s.n} className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold"
-                  style={{ background: step >= s.n ? green : '#E5DDD0', color: step >= s.n ? '#fff' : '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
-                  {s.n}
+          {/* Step indicators — hidden on step 0 */}
+          {effectiveStep >= 1 && (
+            <div className="px-6 pt-5 pb-1 flex items-center justify-center gap-2">
+              {stepsList.map((s, i) => (
+                <div key={s.n} className="flex items-center gap-2">
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-semibold"
+                    style={{ background: effectiveStep >= s.n ? green : '#E5DDD0', color: effectiveStep >= s.n ? '#fff' : '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
+                    {s.n}
+                  </div>
+                  <span className="text-xs font-medium" style={{ color: effectiveStep >= s.n ? green : '#8A8A8A', fontFamily: "'Montserrat', sans-serif", display: window.innerWidth < 400 && i !== effectiveStep - 1 ? 'none' : 'block' }}>{s.label}</span>
+                  {i < stepsList.length - 1 && <div className="w-6 h-px mx-1" style={{ background: effectiveStep > i + 1 ? green : '#E5DDD0' }} />}
                 </div>
-                <span className="text-xs font-medium" style={{ color: step >= s.n ? green : '#8A8A8A', fontFamily: "'Montserrat', sans-serif", display: window.innerWidth < 400 && i !== step - 1 ? 'none' : 'block' }}>{s.label}</span>
-                {i < stepsList.length - 1 && <div className="w-6 h-px mx-1" style={{ background: step > i + 1 ? green : '#E5DDD0' }} />}
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
 
           <div className="flex-1 overflow-y-auto px-6 py-5">
-            {step === 1 && (
+
+            {/* ── STEP 0: Instant vs Scheduled (à la carte only) ── */}
+            {effectiveStep === 0 && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                <div>
+                  <h3 style={{ fontSize: '16px', fontWeight: 700, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", marginBottom: '6px' }}>
+                    {txt('Teslimat Türünü Seçin', 'Choose Delivery Type', 'Выберите тип доставки')}
+                  </h3>
+                  <p style={{ fontSize: '13px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
+                    {txt('Siparişinizin nasıl teslim edileceğini seçin.', 'Choose how you want your order delivered.', 'Выберите способ получения заказа.')}
+                  </p>
+                </div>
+
+                <button type="button"
+                  onClick={() => { setAlacarteScheduled(false); setStep(1); }}
+                  className="flex items-start gap-4 p-5 rounded-2xl text-left cursor-pointer w-full transition-all hover:shadow-md"
+                  style={{ border: '1.5px solid #E5DDD0', background: '#FFFFFF' }}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#E8F0E8' }}>
+                    <Zap size={22} style={{ color: green }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", marginBottom: '4px' }}>
+                      {txt('Anlık Teslimat', 'Instant Delivery', 'Мгновенная доставка')}
+                    </p>
+                    <p style={{ fontSize: '13px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
+                      {txt('En kısa sürede teslim edilsin. Tarih seçmene gerek yok.', 'Delivered as soon as possible. No date selection needed.', 'Доставим как можно скорее. Не нужно выбирать дату.')}
+                    </p>
+                  </div>
+                </button>
+
+                <button type="button"
+                  onClick={() => { setAlacarteScheduled(true); setStep(1); }}
+                  className="flex items-start gap-4 p-5 rounded-2xl text-left cursor-pointer w-full transition-all hover:shadow-md"
+                  style={{ border: '1.5px solid #E5DDD0', background: '#FFFFFF' }}>
+                  <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: '#F5ECD7' }}>
+                    <Calendar size={22} style={{ color: '#C8A97A' }} />
+                  </div>
+                  <div>
+                    <p style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", marginBottom: '4px' }}>
+                      {txt('Planlı Teslimat', 'Scheduled Delivery', 'Запланированная доставка')}
+                    </p>
+                    <p style={{ fontSize: '13px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
+                      {txt('Her öğün için tarih ve saat seç. 30 gün içinde istediğin zaman.', 'Pick a date and time slot for each meal. Anytime within 30 days.', 'Выберите дату и время для каждого блюда. В течение 30 дней.')}
+                    </p>
+                  </div>
+                </button>
+              </div>
+            )}
+
+            {/* ── STEP 1: Contact & delivery info ── */}
+            {effectiveStep === 1 && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
                 <div>
                   <label style={labelStyle}>{t('chk_delivery_pref')}</label>
                   <div className="grid grid-cols-2 gap-3">
                     {[{ value: 'teslimat' as const, icon: <Truck size={16} />, label: t('chk_delivery') }, { value: 'gelal' as const, icon: <MapPin size={16} />, label: t('chk_pickup') }].map(opt => (
-                      <button key={opt.value} onClick={() => update('deliveryType', opt.value)}
+                      <button type="button" key={opt.value} onClick={() => update('deliveryType', opt.value)}
                         className="flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-medium cursor-pointer"
                         style={{ border: `1.5px solid ${form.deliveryType === opt.value ? green : '#E5DDD0'}`, background: form.deliveryType === opt.value ? '#E8F0E8' : '#FFFFFF', color: form.deliveryType === opt.value ? green : '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
                         {opt.icon}{opt.label}
@@ -256,95 +330,98 @@ export default function CheckoutModal() {
                 )}
                 <div>
                   <label style={labelStyle}>{t('chk_notes')}</label>
-                  <textarea
-                    placeholder={t('chk_notes_placeholder')}
-                    rows={2}
-                    value={form.notes}
-                    onChange={e => update('notes', e.target.value)}
-                    style={{ ...iStyle(false), resize: 'none' }}
-                  />
+                  <textarea placeholder={t('chk_notes_placeholder')} rows={2} value={form.notes} onChange={e => update('notes', e.target.value)} style={{ ...iStyle(false), resize: 'none' }} />
                 </div>
               </div>
             )}
 
-            {step === 2 && isSubscription && (
-              <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+            {/* ── STEP 2: 30-day Scheduler ── */}
+            {effectiveStep === 2 && needsSchedule && (
+              <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <div>
-                  <label style={labelStyle} className="flex items-center gap-2"><Calendar size={16} /> {t('chk_start_date')}</label>
-                  <p style={{ fontSize: '12px', color: '#8A8A8A', marginBottom: '8px', fontFamily: "'Montserrat', sans-serif" }}>
-                    {t('chk_start_date_desc')}
+                  <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", marginBottom: '4px' }}>
+                    {t('chk_schedule_title')}
+                  </h3>
+                  <p style={{ fontSize: '12px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>
+                    {txt(
+                      'Her öğün için tarih ve zaman dilimi seçin. 30 gün içinde istediğiniz zaman.',
+                      'Pick a date and time slot for each meal. Anytime within the next 30 days.',
+                      'Выберите дату и временной интервал для каждого блюда. В течение 30 дней.'
+                    )}
                   </p>
-                  <input type="date" value={form.startDate} onChange={e => update('startDate', e.target.value)} style={iStyle(false)} min={tomorrowStr} />
-                </div>
-                
-                <div>
-                  <label style={labelStyle}>{t('chk_time_pref')}</label>
-                  <p style={{ fontSize: '12px', color: '#8A8A8A', marginBottom: '8px', fontFamily: "'Montserrat', sans-serif" }}>
-                    {t('chk_time_pref_desc')}
-                  </p>
-                  <select value={form.timeSlot} onChange={e => update('timeSlot', e.target.value)} style={iStyle(false)}>
-                    {timeSlots.map(slot => (
-                      <option key={slot} value={slot}>{slot}</option>
-                    ))}
-                  </select>
                 </div>
 
-                <div>
-                  <label style={labelStyle}>{t('chk_delivery_days')}</label>
-                  <p style={{ fontSize: '12px', color: '#8A8A8A', marginBottom: '10px', fontFamily: "'Montserrat', sans-serif" }}>
-                    {t('chk_delivery_days_desc')}
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {[{v:'1',l:t('chk_day_mon')},{v:'2',l:t('chk_day_tue')},{v:'3',l:t('chk_day_wed')},{v:'4',l:t('chk_day_thu')},{v:'5',l:t('chk_day_fri')},{v:'6',l:t('chk_day_sat')},{v:'7',l:t('chk_day_sun')}].map(d => {
-                      const isActive = form.deliveryDays.includes(d.v);
-                      return (
-                        <button key={d.v} onClick={() => {
-                          const nd = isActive ? form.deliveryDays.filter(x => x !== d.v) : [...form.deliveryDays, d.v];
-                          if (nd.length > 0) update('deliveryDays', nd);
-                        }}
-                        className="px-4 py-2 rounded-xl text-sm font-semibold transition-all cursor-pointer"
-                        style={{ background: isActive ? green : '#FFFFFF', color: isActive ? '#fff' : '#4A4A4A', border: `1.5px solid ${isActive ? green : '#E5DDD0'}`, fontFamily: "'Montserrat', sans-serif" }}>
-                          {d.l}
-                        </button>
-                      );
-                    })}
-                  </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {mealInstances.map((meal, i) => (
+                    <div key={`${meal.id}-${i}`} style={{ padding: '12px', border: `1.5px solid ${mealAssignments[i]?.day && mealAssignments[i]?.timeSlot ? green : '#E5DDD0'}`, borderRadius: '14px', background: '#FFFFFF', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontSize: '18px', lineHeight: '1', flexShrink: 0 }}>{getMealEmoji(meal.category)}</span>
+                        <span style={{ fontSize: '13px', fontWeight: 600, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>
+                          {meal.name}
+                        </span>
+                        {mealAssignments[i]?.day && mealAssignments[i]?.timeSlot && (
+                          <span style={{ fontSize: '10px', color: green, fontWeight: 700, fontFamily: "'Montserrat', sans-serif", flexShrink: 0 }}>✓</span>
+                        )}
+                      </div>
+                      <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                        <select
+                          value={mealAssignments[i]?.day ?? ''}
+                          onChange={e => updateAssignment(i, 'day', e.target.value)}
+                          style={{ flex: 1, padding: '7px 8px', borderRadius: '8px', border: '1.5px solid #E5DDD0', fontSize: '12px', fontFamily: "'Montserrat', sans-serif", background: '#FFFFFF', color: '#1A1A1A', outline: 'none', cursor: 'pointer', minWidth: 0 }}
+                        >
+                          <option value="" disabled>─ {txt('Gün seç', 'Select day', 'Выбрать день')}</option>
+                          {thirtyDays.map(d => {
+                            const ds = d.toISOString().split('T')[0];
+                            return <option key={ds} value={ds}>{formatDay(d)}</option>;
+                          })}
+                        </select>
+                        {(['morning', 'lunch', 'evening'] as const).map(slot => {
+                          const isActive = mealAssignments[i]?.timeSlot === slot;
+                          const lbl = slot === 'morning' ? t('chk_slot_morning') : slot === 'lunch' ? t('chk_slot_lunch') : t('chk_slot_evening');
+                          return (
+                            <button type="button" key={slot} onClick={() => updateAssignment(i, 'timeSlot', slot)}
+                              style={{
+                                padding: '7px 6px', fontSize: '10px', fontWeight: 700, borderRadius: '8px', cursor: 'pointer',
+                                background: isActive ? green : '#FFFFFF', color: isActive ? '#fff' : '#4A4A4A',
+                                border: `1.5px solid ${isActive ? green : '#E5DDD0'}`, fontFamily: "'Montserrat', sans-serif",
+                                whiteSpace: 'nowrap', lineHeight: 1.3, flexShrink: 0,
+                              }}>
+                              {lbl}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
-                <div>
-                  <h4 style={{ fontSize: '14px', fontWeight: 700, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", marginBottom: '12px' }}>
-                    {t('chk_schedule_preview')}
-                  </h4>
-                  <div className="space-y-3 max-h-48 overflow-y-auto pr-2 custom-scrollbar">
-                    {plannedDeliveries.map((del, idx) => (
-                       <div key={idx} className="p-4 bg-white rounded-xl border border-[#E5DDD0] flex flex-col gap-2">
-                         <div className="flex justify-between items-center">
-                           <span className="font-bold text-[#1A1A1A] text-sm" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                             {new Date(del.date).toLocaleDateString('tr-TR', { weekday: 'long', month: 'short', day: 'numeric' })}
-                           </span>
-                           <span className="text-[10px] font-bold text-green-700 bg-green-50 px-2 py-0.5 rounded-full uppercase" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                             {del.timeSlot}
-                           </span>
-                         </div>
-                         <span className="text-gray-500 text-xs" style={{ fontFamily: "'Montserrat', sans-serif" }}>
-                           {del.items.map(i => `${i.quantity}x ${i.meal.name}`).join(' • ')}
-                         </span>
-                       </div>
-                    ))}
-                  </div>
+                {step2Error && (
+                  <p style={{ color: '#C0392B', fontSize: '12px', fontFamily: "'Montserrat', sans-serif", fontWeight: 600 }}>⚠ {step2Error}</p>
+                )}
+
+                {/* Progress indicator */}
+                <div style={{ fontSize: '12px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif", textAlign: 'center' }}>
+                  {mealAssignments.filter(a => a.day && a.timeSlot).length} / {mealInstances.length} {txt('öğün planlandı', 'meals scheduled', 'блюд запланировано')}
                 </div>
               </div>
             )}
 
-            {step === finalStepNum && (
+            {/* ── FINAL STEP: Payment ── */}
+            {effectiveStep === finalStepNum && (
               <div className="animate-fade-in" style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
                 <label style={labelStyle}>{t('chk_payment_method')}</label>
-                {[{ value: 'cod' as const, icon: <Truck size={16} />, title: t('chk_cod'), desc: t('chk_cod_desc') }, { value: 'card' as const, icon: <CreditCard size={16} />, title: t('chk_card'), desc: t('chk_card_desc') }].map(opt => (
-                  <button key={opt.value} onClick={() => update('paymentMethod', opt.value)}
+                {[
+                  { value: 'cod' as const, icon: <Truck size={16} />, title: t('chk_cod'), desc: t('chk_cod_desc') },
+                  { value: 'card' as const, icon: <CreditCard size={16} />, title: t('chk_card'), desc: t('chk_card_desc') },
+                ].map(opt => (
+                  <button type="button" key={opt.value} onClick={() => update('paymentMethod', opt.value)}
                     className="flex items-center gap-4 p-4 rounded-xl text-left cursor-pointer w-full transition-all"
                     style={{ border: `1.5px solid ${form.paymentMethod === opt.value ? green : '#E5DDD0'}`, background: form.paymentMethod === opt.value ? '#E8F0E8' : '#FFFFFF' }}>
                     <div className="w-10 h-10 rounded-xl flex items-center justify-center transition-all" style={{ background: form.paymentMethod === opt.value ? green : '#F5ECD7', color: form.paymentMethod === opt.value ? '#fff' : '#C8A97A' }}>{opt.icon}</div>
-                    <div><div style={{ fontSize: '14px', fontWeight: 600, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>{opt.title}</div><div style={{ fontSize: '12px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>{opt.desc}</div></div>
+                    <div>
+                      <div style={{ fontSize: '14px', fontWeight: 600, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif" }}>{opt.title}</div>
+                      <div style={{ fontSize: '12px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif" }}>{opt.desc}</div>
+                    </div>
                   </button>
                 ))}
                 {form.paymentMethod === 'card' && (
@@ -378,7 +455,7 @@ export default function CheckoutModal() {
                     <div style={{ borderTop: '1px solid #E5DDD0', paddingTop: '10px', marginTop: '4px' }}>
                       <div className="flex justify-between" style={{ fontSize: '13px', color: '#8A8A8A', fontFamily: "'Montserrat', sans-serif", marginBottom: '4px' }}>
                         <span>{t('cart_delivery')}</span>
-                        <span style={{ color: deliveryFee === 0 ? green : '#1A1A1A', fontWeight: deliveryFee===0 ? 700 : 500 }}>{deliveryFee === 0 ? t('cart_free') : `₺${deliveryFee}`}</span>
+                        <span style={{ color: deliveryFee === 0 ? green : '#1A1A1A', fontWeight: deliveryFee === 0 ? 700 : 500 }}>{deliveryFee === 0 ? t('cart_free') : `₺${deliveryFee}`}</span>
                       </div>
                       <div className="flex justify-between" style={{ fontSize: '16px', fontWeight: 800, color: '#1A1A1A', fontFamily: "'Montserrat', sans-serif", paddingTop: '4px' }}>
                         <span>{t('cart_total')}</span><span style={{ color: green }}>₺{orderTotal.toLocaleString('tr-TR')}</span>
@@ -390,22 +467,48 @@ export default function CheckoutModal() {
             )}
           </div>
 
+          {/* Footer */}
           <div className="px-6 py-4 border-t flex items-center justify-between gap-3" style={{ borderColor: '#E5DDD0', background: '#FFFFFF' }}>
-            {step === 1 ? (
+            {effectiveStep === 0 ? (
+              <button type="button" onClick={() => dispatch({ type: 'TOGGLE_CHECKOUT', payload: false })}
+                className="px-5 py-3 text-sm font-medium cursor-pointer hover:bg-gray-50 rounded-xl transition-all w-full text-center"
+                style={{ color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
+                {txt('İptal', 'Cancel', 'Отмена')}
+              </button>
+            ) : effectiveStep === 1 ? (
               <>
-                <button onClick={() => { dispatch({ type: 'TOGGLE_CHECKOUT', payload: false }); dispatch({ type: 'TOGGLE_CART', payload: true }); }}
-                  className="px-5 py-3 text-sm font-medium cursor-pointer hover:bg-gray-50 rounded-xl transition-all" style={{ color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_back_cart')}</button>
-                <button onClick={() => { if (validateStep1()) setStep(2); }}
+                <button type="button"
+                  onClick={() => isSubscription ? (dispatch({ type: 'TOGGLE_CHECKOUT', payload: false }), dispatch({ type: 'TOGGLE_CART', payload: true })) : setStep(0)}
+                  className="px-5 py-3 text-sm font-medium cursor-pointer hover:bg-gray-50 rounded-xl transition-all"
+                  style={{ color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
+                  {t('chk_back_cart')}
+                </button>
+                <button type="button" onClick={() => { if (validateStep1()) setStep(2); }}
                   className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer transition-transform active:scale-95 shadow-md flex-1 text-center"
-                  style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_continue')}</button>
+                  style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>
+                  {t('chk_continue')}
+                </button>
               </>
             ) : (
               <>
-                <button onClick={() => setStep(step - 1)} className="px-5 py-3 text-sm font-medium cursor-pointer hover:bg-gray-50 rounded-xl transition-all" style={{ color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_back')}</button>
-                {step === finalStepNum ? (
-                  <button onClick={handleSubmit} className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer transition-transform active:scale-95 shadow-md flex-1 text-center" style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_confirm')}</button>
+                <button type="button" onClick={() => setStep(effectiveStep - 1)}
+                  className="px-5 py-3 text-sm font-medium cursor-pointer hover:bg-gray-50 rounded-xl transition-all"
+                  style={{ color: '#4A4A4A', fontFamily: "'Montserrat', sans-serif" }}>
+                  {t('chk_back')}
+                </button>
+                {effectiveStep === finalStepNum ? (
+                  <button type="button" onClick={handleSubmit}
+                    className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer transition-transform active:scale-95 shadow-md flex-1 text-center"
+                    style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>
+                    {t('chk_confirm')}
+                  </button>
                 ) : (
-                   <button onClick={() => setStep(step + 1)} className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer transition-transform active:scale-95 shadow-md flex-1 text-center" style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>{t('chk_continue')}</button>
+                  <button type="button"
+                    onClick={() => { if (effectiveStep === 2 && needsSchedule) { if (validateStep2()) setStep(effectiveStep + 1); } else { setStep(effectiveStep + 1); } }}
+                    className="px-6 py-3 rounded-full text-sm font-semibold cursor-pointer transition-transform active:scale-95 shadow-md flex-1 text-center"
+                    style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}>
+                    {t('chk_continue')}
+                  </button>
                 )}
               </>
             )}

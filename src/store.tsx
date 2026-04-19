@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useReducer, useEffect, type ReactNode } from 'react';
-import type { CartItem, Meal, SubscriptionPlan, Page, Order, ChatConversation } from './types';
+import type { CartItem, Meal, SubscriptionPlan, Page, Order, ChatConversation, AgentSession, AgentMessage, RescheduleRequest } from './types';
 import type { Lang } from './i18n';
 import { meals as initialMeals, subscriptionPlans as initialPlans } from './data';
+import { db } from './lib/database';
 
 const STORAGE_KEY = 'foodforfit_state_v8';
 
@@ -15,6 +16,14 @@ Context about our service:
 - We have breakfast, main meals, bowls, and smoothies
 
 Be warm, concise, and helpful. Help users choose packages, understand meals, or learn about delivery. Keep responses under 150 words. Use relevant emoji occasionally.`;
+
+const initialAgentSession: AgentSession = {
+  isOpen: false,
+  messages: [],
+  phase: 'greeting',
+  discoveredGoals: [],
+  suggestedPlanId: null,
+};
 
 interface AppState {
   currentPage: Page;
@@ -51,6 +60,8 @@ interface AppState {
     closedMessage: string;
   };
   myOrderNumbers: string[];
+  agentSession: AgentSession;
+  rescheduleRequests: RescheduleRequest[];
 }
 
 type Action =
@@ -84,7 +95,23 @@ type Action =
   | { type: 'UPDATE_BUSINESS_SETTINGS'; payload: Partial<AppState['businessSettings']> }
   | { type: 'ADD_CHAT_CONVERSATION'; payload: ChatConversation }
   | { type: 'SYNC_STATE'; payload: AppState }
-  | { type: 'UPDATE_ORDER_DELIVERY_STATUS'; payload: { orderId: string; deliveryId: string; status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' } };
+  | { type: 'UPDATE_ORDER_DELIVERY_STATUS'; payload: { orderId: string; deliveryId: string; status: 'pending' | 'preparing' | 'ready' | 'delivered' | 'cancelled' } }
+  // ── Agent actions ──────────────────────────────────────────────────────────
+  | { type: 'OPEN_AGENT' }
+  | { type: 'CLOSE_AGENT' }
+  | { type: 'ADD_AGENT_MESSAGE'; payload: AgentMessage }
+  | { type: 'UPDATE_AGENT_MESSAGE'; payload: { id: string; updates: Partial<AgentMessage> } }
+  | { type: 'SET_AGENT_PHASE'; payload: AgentSession['phase'] }
+  | { type: 'SET_AGENT_GOALS'; payload: string[] }
+  | { type: 'SET_AGENT_SUGGESTED_PLAN'; payload: string | null }
+  | { type: 'RESET_AGENT' }
+  // ── Reschedule actions ─────────────────────────────────────────────────────
+  | { type: 'ADD_RESCHEDULE_REQUEST'; payload: RescheduleRequest }
+  | { type: 'UPDATE_RESCHEDULE_REQUEST'; payload: { id: string; status: RescheduleRequest['status'] } }
+  // ── Supabase sync ──────────────────────────────────────────────────────────
+  | { type: 'SET_ORDERS'; payload: Order[] }
+  | { type: 'SET_MEALS'; payload: Meal[] }
+  | { type: 'SET_PLANS'; payload: SubscriptionPlan[] };
 
 // Seed orders for demo
 const seedOrders: Order[] = [
@@ -165,6 +192,8 @@ const initialState: AppState = {
     closedMessage: 'Şu an sipariş almıyoruz. Yakında tekrar açılacağız.',
   },
   myOrderNumbers: [],
+  agentSession: initialAgentSession,
+  rescheduleRequests: [],
 };
 
 // Merge with localStorage if exists
@@ -173,14 +202,18 @@ function getInitialState(): AppState {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (!saved) return initialState;
     const parsed = JSON.parse(saved);
-    // Ensure we reset transient UI state
     return {
       ...initialState,
       ...parsed,
       cartOpen: false,
       checkoutOpen: false,
       mobileMenuOpen: false,
-      isAdmin: parsed.isAdmin || false, 
+      isAdmin: parsed.isAdmin || false,
+      agentSession: {
+        ...initialAgentSession,
+        ...(parsed.agentSession ?? {}),
+        isOpen: false,
+      },
     };
   } catch {
     return initialState;
@@ -236,7 +269,8 @@ function reducer(state: AppState, action: Action): AppState {
     case 'SET_ORDER_MODE':
       return { ...state, orderMode: action.payload };
     case 'SELECT_PLAN':
-      return { ...state, subscriptionPlan: action.payload, orderMode: 'subscription', creditsRemaining: action.payload.mealCount, cart: [], currentPage: 'menu' };
+  if (!action.payload) return { ...state, subscriptionPlan: null, orderMode: 'alacarte', creditsRemaining: 0 };
+  return { ...state, subscriptionPlan: action.payload, orderMode: 'subscription', creditsRemaining: action.payload.mealCount, cart: [], currentPage: 'menu' };
     case 'TOGGLE_CART':
       return { ...state, cartOpen: action.payload ?? !state.cartOpen };
     case 'TOGGLE_CHECKOUT':
@@ -303,6 +337,68 @@ function reducer(state: AppState, action: Action): AppState {
       return { ...state, chatHistory: [action.payload, ...state.chatHistory] };
     case 'SYNC_STATE':
       return { ...state, ...action.payload };
+
+    // ── Supabase sync ────────────────────────────────────────────────────────
+    case 'SET_ORDERS':
+      return { ...state, orders: action.payload };
+    case 'SET_MEALS':
+      return { ...state, adminMeals: action.payload };
+    case 'SET_PLANS':
+      return { ...state, adminPlans: action.payload };
+
+    // ── Agent cases ──────────────────────────────────────────────────────────
+    case 'OPEN_AGENT':
+      return {
+        ...state,
+        agentSession: {
+          ...state.agentSession,
+          isOpen: true,
+          phase: state.agentSession.messages.length === 0 ? 'greeting' : state.agentSession.phase,
+        },
+      };
+    case 'CLOSE_AGENT':
+      return { ...state, agentSession: { ...state.agentSession, isOpen: false } };
+    case 'ADD_AGENT_MESSAGE':
+      return {
+        ...state,
+        agentSession: {
+          ...state.agentSession,
+          messages: [...state.agentSession.messages, action.payload],
+        },
+      };
+    case 'UPDATE_AGENT_MESSAGE':
+      return {
+        ...state,
+        agentSession: {
+          ...state.agentSession,
+          messages: state.agentSession.messages.map(m =>
+            m.id === action.payload.id ? { ...m, ...action.payload.updates } : m
+          ),
+        },
+      };
+    case 'SET_AGENT_PHASE':
+      return { ...state, agentSession: { ...state.agentSession, phase: action.payload } };
+    case 'SET_AGENT_GOALS':
+      return { ...state, agentSession: { ...state.agentSession, discoveredGoals: action.payload } };
+    case 'SET_AGENT_SUGGESTED_PLAN':
+      return { ...state, agentSession: { ...state.agentSession, suggestedPlanId: action.payload } };
+    case 'RESET_AGENT':
+      return {
+        ...state,
+        agentSession: { ...initialAgentSession, isOpen: state.agentSession.isOpen },
+      };
+
+    // ── Reschedule cases ─────────────────────────────────────────────────────
+    case 'ADD_RESCHEDULE_REQUEST':
+      return { ...state, rescheduleRequests: [...state.rescheduleRequests, action.payload] };
+    case 'UPDATE_RESCHEDULE_REQUEST':
+      return {
+        ...state,
+        rescheduleRequests: state.rescheduleRequests.map(r =>
+          r.id === action.payload.id ? { ...r, status: action.payload.status } : r
+        ),
+      };
+
     default:
       return state;
   }
@@ -313,12 +409,27 @@ const AppContext = createContext<{ state: AppState; dispatch: React.Dispatch<Act
 export function AppProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(reducer, getInitialState());
 
-  // Save to localStorage whenever state changes
+  // ── On mount: load meals, plans, orders from Supabase ──────────────────────
+  useEffect(() => {
+    const loadFromSupabase = async () => {
+      const [meals, plans, orders] = await Promise.all([
+        db.getMeals(),
+        db.getPlans(),
+        db.getOrders(),
+      ]);
+      if (meals.length > 0) dispatch({ type: 'SET_MEALS', payload: meals });
+      if (plans.length > 0) dispatch({ type: 'SET_PLANS', payload: plans });
+      if (orders.length > 0) dispatch({ type: 'SET_ORDERS', payload: orders });
+    };
+    loadFromSupabase();
+  }, []);
+
+  // ── Save to localStorage whenever state changes ────────────────────────────
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }, [state]);
 
-  // Sync state across tabs
+  // ── Sync state across tabs ─────────────────────────────────────────────────
   useEffect(() => {
     const handleStorage = (e: StorageEvent) => {
       if (e.key === STORAGE_KEY && e.newValue) {

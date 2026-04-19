@@ -4,6 +4,7 @@ import { ArrowLeft, Package, UtensilsCrossed, ShoppingBag, Plus, Trash2, Edit3, 
 import { useApp } from '../store';
 import { useT } from '../i18n';
 import type { Meal, SubscriptionPlan, Order } from '../types';
+import { db } from '../lib/database';
 
 const green = '#1E3F30';
 const gold = '#C8A97A';
@@ -245,7 +246,7 @@ function OrdersTab() {
                   return (
                     <button
                       key={s}
-                      onClick={() => dispatch({ type: 'UPDATE_ORDER_STATUS', payload: { id: order.id, status: s } })}
+                      onClick={() => { dispatch({ type: 'UPDATE_ORDER_STATUS', payload: { id: order.id, status: s } }); db.updateOrderStatus(order.id, s); }}
                       className="px-3 py-1.5 rounded-xl text-[11px] font-bold cursor-pointer transition-all border"
                       style={{
                         background: isActive ? sc2.bg : '#FFFFFF',
@@ -449,7 +450,9 @@ function MenuTab() {
         <MealForm
           meal={emptyMeal()}
           onSave={m => {
-            dispatch({ type: 'ADD_MEAL', payload: { ...m, id: `meal-${Date.now()}` } });
+            const newMeal = { ...m, id: `meal-${Date.now()}` };
+            dispatch({ type: 'ADD_MEAL', payload: newMeal });
+            db.createMeal(newMeal);
             setAdding(false);
           }}
           onCancel={() => setAdding(false)}
@@ -462,7 +465,7 @@ function MenuTab() {
             {editing === meal.id ? (
               <MealForm
                 meal={meal}
-                onSave={m => { dispatch({ type: 'UPDATE_MEAL', payload: m }); setEditing(null); }}
+                onSave={m => { dispatch({ type: 'UPDATE_MEAL', payload: m }); db.updateMeal(m); setEditing(null); }}
                 onCancel={() => setEditing(null)}
               />
             ) : (
@@ -499,7 +502,7 @@ function MenuTab() {
                     <Edit3 size={14} />
                   </button>
                   <button
-                    onClick={() => { if (window.confirm('Bu öğünü silmek istediğinizden emin misiniz?')) dispatch({ type: 'DELETE_MEAL', payload: meal.id }); }}
+                    onClick={() => { if (window.confirm('Bu öğünü silmek istediğinizden emin misiniz?')) { dispatch({ type: 'DELETE_MEAL', payload: meal.id }); db.deleteMeal(meal.id); } }}
                     className="w-8 h-8 rounded-xl flex items-center justify-center cursor-pointer hover:opacity-70"
                     style={{ background: '#FEE2E2', color: '#C0392B' }}>
                     <Trash2 size={14} />
@@ -664,7 +667,9 @@ function PackagesTab() {
         <PlanForm
           plan={emptyPlan()}
           onSave={p => {
-            dispatch({ type: 'ADD_PLAN', payload: { ...p, id: `plan-${Date.now()}` } });
+            const newPlan = { ...p, id: `plan-${Date.now()}` };
+            dispatch({ type: 'ADD_PLAN', payload: newPlan });
+            db.createPlan(newPlan);
             setAdding(false);
           }}
           onCancel={() => setAdding(false)}
@@ -677,7 +682,7 @@ function PackagesTab() {
             {editing === plan.id ? (
               <PlanForm
                 plan={plan}
-                onSave={p => { dispatch({ type: 'UPDATE_PLAN', payload: p }); setEditing(null); }}
+                onSave={p => { dispatch({ type: 'UPDATE_PLAN', payload: p }); db.updatePlan(p); setEditing(null); }}
                 onCancel={() => setEditing(null)}
               />
             ) : (
@@ -714,7 +719,7 @@ function PackagesTab() {
                       <Edit3 size={14} />
                     </button>
                     <button
-                      onClick={() => { if (window.confirm('Bu paketi silmek istediğinizden emin misiniz?')) dispatch({ type: 'DELETE_PLAN', payload: plan.id }); }}
+                      onClick={() => { if (window.confirm('Bu paketi silmek istediğinizden emin misiniz?')) { dispatch({ type: 'DELETE_PLAN', payload: plan.id }); db.deletePlan(plan.id); } }}
                       className="w-8 h-8 rounded-xl flex items-center justify-center cursor-pointer hover:opacity-70"
                       style={{ background: plan.popular ? 'rgba(255,100,100,0.2)' : '#FEE2E2', color: '#C0392B' }}>
                       <Trash2 size={14} />
@@ -1623,6 +1628,7 @@ function ProductionTab() {
                             onClick={() => {
                               if (td.isAlacarte) {
                                 dispatch({ type: 'UPDATE_ORDER_STATUS', payload: { id: td.order.id, status: s } });
+                                db.updateOrderStatus(td.order.id, s);
                               } else {
                                 dispatch({ type: 'UPDATE_ORDER_DELIVERY_STATUS', payload: { orderId: td.order.id, deliveryId: td.delivery.id, status: s } });
                               }

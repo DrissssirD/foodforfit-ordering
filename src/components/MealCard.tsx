@@ -105,9 +105,24 @@ export default function MealCard({ meal, compact }: Props) {
               )}
             </>
           ) : (
-             <span className="text-[11px] font-semibold tracking-wider uppercase px-3 py-1.5 rounded-lg border" style={{ color: '#8A8A8A', borderColor: '#E5DDD0', background: '#FAFAFA' }}>
-               {t('menu_pkg_select_required')}
-             </span>
+            <>
+              <span className="text-sm font-bold" style={{ color: green, fontFamily: "'Montserrat', sans-serif" }}>₺{meal.price.toLocaleString('tr-TR')}</span>
+              {inCart ? (
+                <div className="flex items-center gap-2">
+                  <button onClick={handleRemove} className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer" style={{ background: '#F5ECD7', color: green }}><Minus size={14} /></button>
+                  <span className="w-6 text-center text-sm font-semibold" style={{ fontFamily: "'Montserrat', sans-serif", color: '#1A1A1A' }}>{inCart.quantity}</span>
+                  <button onClick={handleAdd} className="w-8 h-8 rounded-full flex items-center justify-center cursor-pointer transition-all duration-200" style={{ background: green, color: '#fff' }}><Plus size={14} /></button>
+                </div>
+              ) : (
+                <button
+                  onClick={handleAdd}
+                  className="px-4 py-2 text-sm font-medium rounded-full flex items-center gap-1.5 transition-all duration-200 cursor-pointer"
+                  style={{ background: green, color: '#fff', fontFamily: "'Montserrat', sans-serif" }}
+                >
+                  <Plus size={14} />{t('meal_add')}
+                </button>
+              )}
+            </>
           )}
         </div>
       </div>
